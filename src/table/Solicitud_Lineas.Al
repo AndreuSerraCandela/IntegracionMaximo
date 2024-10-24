@@ -74,7 +74,7 @@ table 50101 "Solicitud Líneas"
         {
             DataClassification = ToBeClassified;
         }
-        field(13; "Importe"; Code[20])
+        field(13; "Importe"; Decimal)
         {
             DataClassification = ToBeClassified;
         }

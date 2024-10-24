@@ -113,7 +113,7 @@ page 50102 "Solicitud Encabezado Ficha"
                             OrderLine.Insert(true);
                             OrderLine.Validate("Buy-from Vendor No.", SolicitudEncabezado."ID Proveedor");
                             OrderLine.Modify(true);
-                        until not SolicitudLineas.Next();
+                        until SolicitudLineas.Next() = 0;
                 end;
 
             }

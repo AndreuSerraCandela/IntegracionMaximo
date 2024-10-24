@@ -119,7 +119,7 @@ codeunit 50001 FuncionesJson
                 SolicitudLineas."Proyecto" := JsonToken.AsValue().AsText();
                 Clear(JsonToken);
                 JsonObjLineas.Get('Importe', JsonToken);
-                SolicitudLineas."Importe" := JsonToken.AsValue().AsText();
+                If Evaluate(SolicitudLineas."Importe", JsonToken.AsValue().AsText()) Then;
                 Clear(JsonToken);
                 JsonObjLineas.Get('Año', JsonToken);
                 SolicitudLineas."Año" := JsonToken.AsValue().AsText();
