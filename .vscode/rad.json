@@ -1,1 +1,1 @@
-﻿{"Added":[{"Id":50101,"Kind":17,"Name":"Purchase Line Extension","Namespace":""}],"Modified":[{"Id":50100,"Kind":17,"Name":"Purchase Header Extension","Namespace":""},{"Id":50102,"Kind":12,"Name":"Solicitud Encabezado Ficha","Namespace":""},{"Id":50001,"Kind":11,"Name":"FuncionesJson","Namespace":""},{"Id":50101,"Kind":10,"Name":"Solicitud Líneas","Namespace":""}],"Removed":[{"Id":50100,"Kind":16,"Name":"CustomerListExt","Namespace":"DefaultPublisher.IntegracionMaximo"}]}
+﻿{"Added":[],"Modified":[],"Removed":[]}

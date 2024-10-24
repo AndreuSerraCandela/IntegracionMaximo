@@ -107,9 +107,8 @@ page 50102 "Solicitud Encabezado Ficha"
                             OrderLine."Quantity" := SolicitudLineas."Cantidad";
                             OrderLine.Type := OrderLine.Type::"G/L Account";
                             OrderLine."No." := SolicitudLineas."Cuenta activo fijo";
-                            OrderLine."Direct Unit Cost" := SolicitudLineas."Importe";
-                            OrderLine."Posting Date" := WORKDATE;
-                            OrderLine."Order No." := OrderHeader."Order No.";
+                            Evaluate(OrderLine."Direct Unit Cost", SolicitudLineas."Importe");
+                            OrderLine."Document No." := OrderHeader."No.";
                             OrderLine.Insert(true);
                             OrderLine.Validate("Buy-from Vendor No.", SolicitudEncabezado."ID Proveedor");
                             OrderLine.Modify(true);
