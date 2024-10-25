@@ -8,7 +8,7 @@ page 50102 "Solicitud Encabezado Ficha"
     {
         area(content)
         {
-            repeater(Group)
+            Group(General)
             {
                 field("N Solicitud"; Rec."N Solicitud")
                 {
@@ -63,6 +63,11 @@ page 50102 "Solicitud Encabezado Ficha"
                     ApplicationArea = All;
                 }
             }
+            part("SolicitudLineas"; "Solicitud Líneas")
+            {
+                ApplicationArea = All;
+                Caption = 'Líneas';
+            }
 
         }
     }
@@ -107,7 +112,8 @@ page 50102 "Solicitud Encabezado Ficha"
                             OrderLine."Quantity" := SolicitudLineas."Cantidad";
                             OrderLine.Type := OrderLine.Type::"G/L Account";
                             OrderLine."No." := SolicitudLineas."Cuenta activo fijo";
-                            Evaluate(OrderLine."Direct Unit Cost", SolicitudLineas."Importe");
+                            OrderLine.Quantity := 1;
+                            OrderLine."Direct Unit Cost" := SolicitudLineas."Importe";
                             OrderLine."Document No." := OrderHeader."No.";
                             OrderLine.Insert(true);
                             OrderLine.Validate("Buy-from Vendor No.", SolicitudEncabezado."ID Proveedor");

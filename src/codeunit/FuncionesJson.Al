@@ -106,25 +106,75 @@ codeunit 50001 FuncionesJson
                 JsonObjLineas.Get('n_Pedido_presupuesto', JsonToken);
                 SolicitudLineas."N Pedido Presupuesto" := JsonToken.AsValue().AsText();
                 Clear(JsonToken);
-                JsonObjLineas.Get('epigrafe Pptop', JsonToken);
+                JsonObjLineas.Get('epigrafe_pptop', JsonToken);
                 SolicitudLineas."Epígrafe Pptop" := JsonToken.AsValue().AsText();
                 Clear(JsonToken);
-                JsonObjLineas.Get('Fecha activo fijo', JsonToken);
+                JsonObjLineas.Get('fecha_activo_fijo', JsonToken);
                 If Evaluate(SolicitudLineas."Fecha activo fijo", JsonToken.AsValue().AsText()) then;
                 Clear(JsonToken);
-                JsonObjLineas.Get('Dimensión', JsonToken);
+                JsonObjLineas.Get('dimension', JsonToken);
                 If Evaluate(SolicitudLineas."Dimensión", JsonToken.AsValue().AsText()) then;
                 Clear(JsonToken);
-                JsonObjLineas.Get('Proyecto', JsonToken);
+                JsonObjLineas.Get('proyecto', JsonToken);
                 SolicitudLineas."Proyecto" := JsonToken.AsValue().AsText();
                 Clear(JsonToken);
-                JsonObjLineas.Get('Importe', JsonToken);
+                JsonObjLineas.Get('importe', JsonToken);
                 If Evaluate(SolicitudLineas."Importe", JsonToken.AsValue().AsText()) Then;
                 Clear(JsonToken);
-                JsonObjLineas.Get('Año', JsonToken);
+                JsonObjLineas.Get('anyo', JsonToken);
                 SolicitudLineas."Año" := JsonToken.AsValue().AsText();
                 Clear(JsonToken);
             end;
+        end;
+
+    end;
+
+    procedure Productos_Bc_Max(var Json: Text);
+    var
+        JsonObj: JsonObject;
+        JsonArrayProductos: JsonArray;
+        JsonTokenProducto: JsonToken;
+        JsonObjProducto: JsonObject;
+        JsonToken: JsonToken;
+        Producto: Record "Item_BC_Max";
+    begin
+        JsonObj.ReadFrom(Json);
+        JsonObj.Get('Productos', JsonTokenProducto);
+        JsonArrayProductos := JsonTokenProducto.AsArray();
+        foreach JsonTokenProducto in JsonArrayProductos do begin
+            JsonObjProducto := JsonTokenProducto.AsObject();
+            Clear(JsonToken);
+            JsonObjProducto.Get('codigo_producto', JsonToken);
+            Producto.Init();
+            Producto."Código Producto" := JsonToken.AsValue().AsText();
+            Producto.Insert();
+            // 	1 	Código Producto 	Char 	20 
+            // 	2 	Descripción de Producto 	Char 	100 
+            // 	3 	Tipo de Integración 	Char 	20 
+            // 	4 	Código Asociado 	Char 	20 
+            // 	5 	Unidad de Medida 	Char 	10 
+            // 	6 	Costo Producto 	Decimal 	28 
+            Clear(JsonToken);
+            JsonObjProducto.Get('descripcion_producto', JsonToken);
+            Producto."Descripción de Producto" := JsonToken.AsValue().AsText();
+            Clear(JsonToken);
+            JsonObjProducto.Get('tipo_integracion', JsonToken);
+            case JsonToken.AsValue().AsText() of
+                'G/L Account':
+                    Producto."Tipo de Integración" := Producto."Tipo de Integración"::"G/L Account";
+                'Item':
+                    Producto."Tipo de Integración" := Producto."Tipo de Integración"::Item;
+
+            end;
+            Clear(JsonToken);
+            JsonObjProducto.Get('codigo_asociado', JsonToken);
+            Producto."Código Asociado" := JsonToken.AsValue().AsText();
+            Clear(JsonToken);
+            JsonObjProducto.Get('mnidad_medida', JsonToken);
+            Producto."Unidad de Medida" := JsonToken.AsValue().AsText();
+            Clear(JsonToken);
+            JsonObjProducto.Get('costo_producto', JsonToken);
+            If Evaluate(Producto."Costo Producto", JsonToken.AsValue().AsText()) then;
         end;
 
     end;

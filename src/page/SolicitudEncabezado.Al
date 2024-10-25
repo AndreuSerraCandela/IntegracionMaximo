@@ -11,7 +11,7 @@ page 50100 "Solicitud Encabezado"
     {
         area(content)
         {
-            group(General)
+            repeater(Lista)
             {
                 field("N Solicitud"; Rec."N Solicitud")
                 {
@@ -65,10 +65,6 @@ page 50100 "Solicitud Encabezado"
                 {
                     ApplicationArea = All;
                 }
-            }
-            part("SolicitudLineas"; "Solicitud Líneas")
-            {
-                Caption = 'Líneas';
             }
 
         }
