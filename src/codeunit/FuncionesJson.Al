@@ -1,8 +1,13 @@
 codeunit 50001 FuncionesJson
 {
+    [ServiceEnabled]
+    procedure Ping(): Text
+    begin
+        exit('Pong');
+    end;
 
     [ServiceEnabled]
-    procedure SolicitdWebServices(var Json: Text);
+    procedure solicitudwebservices(Json: Text): Text
     var
         JsonObj: JsonObject;
         JsonArraySolicitudes: JsonArray;
@@ -126,10 +131,11 @@ codeunit 50001 FuncionesJson
                 Clear(JsonToken);
             end;
         end;
-
+        exit('Solicitudes insertadas');
     end;
 
-    procedure Productos_Bc_Max(var Json: Text);
+    [ServiceEnabled]
+    procedure productos_bc_max(Json: Text): Text
     var
         JsonObj: JsonObject;
         JsonArrayProductos: JsonArray;
@@ -176,6 +182,6 @@ codeunit 50001 FuncionesJson
             JsonObjProducto.Get('costo_producto', JsonToken);
             If Evaluate(Producto."Costo Producto", JsonToken.AsValue().AsText()) then;
         end;
-
+        exit('Productos insertados');
     end;
 }
