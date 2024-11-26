@@ -1,5 +1,10 @@
 codeunit 50501 FuncionesJson
 {
+    [ServiceEnabled]
+    procedure Ping(): Text
+    begin
+        exit('Pong');
+    end;
 
     [ServiceEnabled]
     procedure solicitudwebservices(Json: Text): text
