@@ -1,4 +1,4 @@
-page 50101 "Solicitud Líneas"
+page 50501 "Solicitud Líneas"
 {
     PageType = ListPart;
     SourceTable = "Solicitud Líneas";

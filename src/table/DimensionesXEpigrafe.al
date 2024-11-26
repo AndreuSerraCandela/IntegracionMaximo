@@ -5,7 +5,7 @@
 // 3 	Cuenta 	Char 	50 
 // 2 	Dimensión 	Char 	50 
 //Crear Tabla y Page de DimensionesxEpigrafe
-table 50111 DimensionesxEpigrafe
+table 50511 DimensionesxEpigrafe
 {
     DrillDownPageId = DimensionesxEpigrafe;
     LookupPageId = DimensionesxEpigrafe;
@@ -39,7 +39,7 @@ table 50111 DimensionesxEpigrafe
     }
 }
 //Crear Page List
-page 50112 "DimensionesxEpigrafe"
+page 50512 "DimensionesxEpigrafe"
 {
     PageType = List;
     SourceTable = DimensionesxEpigrafe;

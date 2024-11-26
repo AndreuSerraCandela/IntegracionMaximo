@@ -5,7 +5,7 @@
 // 3 	Nombre Sociedad 	Char 	20 
 // 4 	Código Sociedad 	Char 	20
 // Crear Tabla y Page de OT
-table 50106 OT
+table 50506 OT
 {
     DrillDownPageId = OT;
     LookupPageId = OT;
@@ -35,39 +35,6 @@ table 50106 OT
         key(PK; "Código")
         {
             Clustered = true;
-        }
-    }
-}
-//Crear Page List
-page 50107 "OT"
-{
-    PageType = List;
-    SourceTable = OT;
-    DelayedInsert = true;
-    layout
-    {
-        area(content)
-        {
-            repeater(Group)
-            {
-                field("Código"; Rec."Código")
-                {
-                    ApplicationArea = All;
-                }
-                field("Nombre De OT"; Rec."Nombre De OT")
-                {
-                    ApplicationArea = All;
-                }
-                field("Código Sociedad"; Rec."Código Sociedad")
-                {
-                    ApplicationArea = All;
-                }
-                field("Nombre Sociedad"; Rec."Nombre Sociedad")
-                {
-                    ApplicationArea = All;
-                }
-
-            }
         }
     }
 }

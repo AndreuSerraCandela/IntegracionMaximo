@@ -5,7 +5,7 @@
 // 4 	Cuenta Contable Asociada 
 // 5 	Unidad de Medida 
 // 6 	Costo Producto 
-table 50001 Item_BC_Max
+table 50501 Item_BC_Max
 {
     DrillDownPageId = Item_BC_Max;
     LookupPageId = Item_BC_Max;

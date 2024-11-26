@@ -5,7 +5,7 @@
 // 2 	Nombre Epigrafe 	Char 	50 
 // 3 	Cuenta 	Char 	50 
 //Crear Tabla y Page de CuentasxEpigrafe
-table 50109 CuentasxEpigrafe
+table 50509 CuentasxEpigrafe
 {
     DrillDownPageId = CuentasxEpigrafe;
     LookupPageId = CuentasxEpigrafe;
@@ -31,34 +31,6 @@ table 50109 CuentasxEpigrafe
         key(PK; "Código", "Cuenta")
         {
             Clustered = true;
-        }
-    }
-}
-//Crear Page List
-page 50110 "CuentasxEpigrafe"
-{
-    PageType = List;
-    SourceTable = CuentasxEpigrafe;
-    DelayedInsert = true;
-    layout
-    {
-        area(content)
-        {
-            repeater(Group)
-            {
-                field("Código"; Rec."Código")
-                {
-                    ApplicationArea = All;
-                }
-                field("Nombre Epigrafe"; Rec."Nombre Epigrafe")
-                {
-                    ApplicationArea = All;
-                }
-                field("Cuenta"; Rec."Cuenta")
-                {
-                    ApplicationArea = All;
-                }
-            }
         }
     }
 }

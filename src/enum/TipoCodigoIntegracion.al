@@ -1,4 +1,4 @@
-enum 50000 TipoCodigoIntegracion
+enum 50500 TipoCodigoIntegracion
 {
     Value(0; "G/L Account")
     {

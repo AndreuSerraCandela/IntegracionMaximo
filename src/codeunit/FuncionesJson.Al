@@ -1,8 +1,21 @@
-codeunit 50001 FuncionesJson
+codeunit 50501 FuncionesJson
 {
 
     [ServiceEnabled]
-    procedure SolicitdWebServices(var Json: Text);
+    procedure solicitudwebservices(Json: Text): text
+    var
+        Result: Text;
+    begin
+        If Not Trysolicitudwebservices(Json, Result) then begin
+            Result := GetLastErrorText();
+            LogError(Result, 'Solicitudes');
+            exit(Result);
+        end;
+        exit(Result);
+    end;
+
+    [TryFunction]
+    procedure Trysolicitudwebservices(Json: Text; var Result: text)
     var
         JsonObj: JsonObject;
         JsonArraySolicitudes: JsonArray;
@@ -126,10 +139,24 @@ codeunit 50001 FuncionesJson
                 Clear(JsonToken);
             end;
         end;
-
+        Result := 'Ok';
     end;
 
-    procedure Productos_Bc_Max(var Json: Text);
+    [ServiceEnabled]
+    procedure productos_bc_max(Json: Text): text
+    var
+        Result: Text;
+    begin
+        If Not Tryproductos_bc_max(Json, Result) then begin
+            Result := GetLastErrorText();
+            LogError(Result, 'Productos BC Max');
+            exit(Result);
+        end;
+        exit(Result);
+    end;
+
+    [TryFunction]
+    procedure Tryproductos_bc_max(Json: Text; var Result: text)
     var
         JsonObj: JsonObject;
         JsonArrayProductos: JsonArray;
@@ -137,6 +164,7 @@ codeunit 50001 FuncionesJson
         JsonObjProducto: JsonObject;
         JsonToken: JsonToken;
         Producto: Record "Item_BC_Max";
+        Producto2: Record "Item_BC_Max";
     begin
         JsonObj.ReadFrom(Json);
         JsonObj.Get('Productos', JsonTokenProducto);
@@ -147,7 +175,8 @@ codeunit 50001 FuncionesJson
             JsonObjProducto.Get('codigo_producto', JsonToken);
             Producto.Init();
             Producto."Código Producto" := JsonToken.AsValue().AsText();
-            Producto.Insert();
+            If Not Producto2.Get(JsonToken.AsValue().AsText()) then
+                Producto.Insert();
             // 	1 	Código Producto 	Char 	20 
             // 	2 	Descripción de Producto 	Char 	100 
             // 	3 	Tipo de Integración 	Char 	20 
@@ -158,24 +187,156 @@ codeunit 50001 FuncionesJson
             JsonObjProducto.Get('descripcion_producto', JsonToken);
             Producto."Descripción de Producto" := JsonToken.AsValue().AsText();
             Clear(JsonToken);
-            JsonObjProducto.Get('tipo_integracion', JsonToken);
-            case JsonToken.AsValue().AsText() of
-                'G/L Account':
-                    Producto."Tipo de Integración" := Producto."Tipo de Integración"::"G/L Account";
-                'Item':
-                    Producto."Tipo de Integración" := Producto."Tipo de Integración"::Item;
+            If JsonObjProducto.Get('tipo_integracion', JsonToken) Then begin
+                case JsonToken.AsValue().AsText() of
+                    'G/L Account':
+                        Producto."Tipo de Integración" := Producto."Tipo de Integración"::"G/L Account";
+                    'Item':
+                        Producto."Tipo de Integración" := Producto."Tipo de Integración"::Item;
 
+                end;
             end;
             Clear(JsonToken);
-            JsonObjProducto.Get('codigo_asociado', JsonToken);
-            Producto."Código Asociado" := JsonToken.AsValue().AsText();
+            If JsonObjProducto.Get('codigo_asociado', JsonToken) then
+                Producto."Código Asociado" := JsonToken.AsValue().AsText();
             Clear(JsonToken);
-            JsonObjProducto.Get('mnidad_medida', JsonToken);
-            Producto."Unidad de Medida" := JsonToken.AsValue().AsText();
+            if JsonObjProducto.Get('unidad_medida', JsonToken) then
+                Producto."Unidad de Medida" := JsonToken.AsValue().AsText();
             Clear(JsonToken);
-            JsonObjProducto.Get('costo_producto', JsonToken);
-            If Evaluate(Producto."Costo Producto", JsonToken.AsValue().AsText()) then;
+            if JsonObjProducto.Get('costo_producto', JsonToken) then
+                If Evaluate(Producto."Costo Producto", JsonToken.AsValue().AsText()) then;
+            Producto.Modify();
+        end;
+        Result := 'Ok';
+
+    end;
+
+    [ServiceEnabled]
+    procedure apuntescontables(Json: Text): text
+    var
+        Result: Text;
+    begin
+        If Not Tryapuntescontables(Json, Result) then begin
+            Result := GetLastErrorText();
+            LogError(Result, 'Apuntes Contables');
+            exit(Result);
         end;
 
+        exit(Result);
+    end;
+
+    [TryFunction]
+    procedure Tryapuntescontables(Json: Text; var Result: Text)
+    var
+        JsonObj: JsonObject;
+        JsonArrayEmpresas: JsonArray;
+        JsonTokenEmpresa: JsonToken;
+        JsonObjEmpresa: JsonObject;
+        JsonArrayApuntes: JsonArray;
+        JsonTokenApunte: JsonToken;
+        JsonObjApunte: JsonObject;
+        JsonToken: JsonToken;
+        Apunte: Record "ApuntesContables";
+        Empresa: Text[100];
+        rInf: Record "Company Information";
+        BcEmpresa: Text[30];
+        GlAcount: Record "G/L Account";
+        Job: Record Job;
+    begin
+        JsonObj.ReadFrom(Json);
+        JsonObj.Get('empresas', JsonTokenEmpresa);
+        JsonArrayEmpresas := JsonTokenEmpresa.AsArray();
+        foreach JsonTokenEmpresa in JsonArrayEmpresas do begin
+            JsonObjEmpresa := JsonTokenEmpresa.AsObject();
+            Clear(JsonToken);
+            JsonObjEmpresa.Get('nombre', JsonToken);
+            Empresa := JsonToken.AsValue().AsText();
+            JsonObjEmpresa.Get('apuntes_contables', JsonTokenApunte);
+            JsonArrayApuntes := JsonTokenApunte.AsArray();
+            foreach JsonTokenApunte in JsonArrayApuntes do begin
+                JsonObjApunte := JsonTokenApunte.AsObject();
+                Clear(JsonToken);
+                Apunte.Init();
+                Apunte.Empresa := Empresa;
+                If not rInf.DevuelveEmpresa(Empresa, BcEmpresa) then begin
+                    Result := 'No se ha encontrado la empresa ' + Empresa;
+                    LogError(Result, 'Apuntes Contables');
+                    exit;
+                end;
+                // 	1 	Empresa 	Char 	100 
+                // 	2 	ID Apunte 	Char 	20 
+                // 	3 	Fecha 	Fecha 	  
+                // 	4 	Concepto 	Char 	100 
+                // 	5 	Importe 	Decimal 	28 
+                // 	6 	Cuenta 	Char 	20 
+                // 	7 	Descripción 	Char 	100 
+                // 	8 	Procesado 	Boolean 	  
+                // 	9 	Error 	Boolean 	  
+                Clear(JsonToken);
+                JsonObjApunte.Get('id_apunte', JsonToken);
+                Apunte."ID Apunte" := JsonToken.AsValue().AsText();
+                Apunte.Insert();
+                Clear(JsonToken);
+                JsonObjApunte.Get('fecha', JsonToken);
+                If Evaluate(Apunte.Fecha, JsonToken.AsValue().AsText()) then;
+                Clear(JsonToken);
+                JsonObjApunte.Get('concepto', JsonToken);
+                Apunte.Concepto := JsonToken.AsValue().AsText();
+                Clear(JsonToken);
+                JsonObjApunte.Get('importe', JsonToken);
+                Apunte.Importe := JsonToken.AsValue().AsDecimal();
+                Clear(JsonToken);
+                JsonObjApunte.Get('cuenta', JsonToken);
+                Apunte.Cuenta := JsonToken.AsValue().AsText();
+                GlAcount.ChangeCompany(BcEmpresa);
+                if not GlAcount.Get(Apunte.Cuenta) then begin
+                    Result := 'No se ha encontrado la cuenta ' + Apunte.Cuenta;
+                    LogError(Result, 'Apuntes Contables');
+                    exit;
+                end;
+                Clear(JsonToken);
+                If JsonObjApunte.Get('proyecto', JsonToken) Then begin
+                    Apunte.Proyecto := JsonToken.AsValue().AsText();
+                    if Apunte.Proyecto <> '' then begin
+                        if not Job.Get(Apunte.Proyecto) then begin
+                            Result := 'No se ha encontrado el proyecto ' + Apunte.Proyecto + 'Se procede a crearlo. ';
+                            LogError(Result, 'Apuntes Contables');
+                            //exit;
+                            Job.Init();
+                            Job."No." := Apunte.Proyecto;
+                            Job.Description := Apunte.Proyecto;
+                            Job.Insert();
+                        end;
+                    end;
+                end;
+                Clear(JsonToken);
+                JsonObjApunte.Get('descripcion', JsonToken);
+                Apunte.Descripción := JsonToken.AsValue().AsText();
+                Apunte.Modify();
+            end;
+
+        end;
+        Result += 'Ok';
+        //exit(true);
+    end;
+
+    procedure LogError(ErrorMessage: Text; Proceso: Text)
+    var
+        Log: Record "Log Máximo";
+        a: Integer;
+    begin
+        // Implement your error logging here
+        //Crear el metodo para gramar error en la tabla "Log Maximo"
+        If Log.FindLast() then
+            a := Log."ID" + 1
+        else
+            a := 1;
+        Log.Init();
+        Log."ID" := a;
+        Log.Fecha := Today;
+        Log.Hora := TIME;
+        Log.Proceso := Proceso;
+        Log.Mensaje := ErrorMessage;
+        Log.Insert();
     end;
 }

@@ -4,10 +4,10 @@
 // 1 	Código 	Char 	20 
 // 2 	Nombre Proyecto 	Char 	50 
 //Crear Tabla y Page de Proyecto
-table 50108 Proyecto
+table 50508 Proyecto
 {
-    DrillDownPageId = Proyecto;
-    LookupPageId = Proyecto;
+    DrillDownPageId = "Proyecto Máximo";
+    LookupPageId = "Proyecto Máximo";
     fields
     {
         field(1; "Código"; Code[20])
@@ -24,30 +24,6 @@ table 50108 Proyecto
         key(PK; "Código")
         {
             Clustered = true;
-        }
-    }
-}
-//Crear Page List
-page 50109 "Proyecto"
-{
-    PageType = List;
-    SourceTable = Proyecto;
-    DelayedInsert = true;
-    layout
-    {
-        area(content)
-        {
-            repeater(Group)
-            {
-                field("Código"; Rec."Código")
-                {
-                    ApplicationArea = All;
-                }
-                field("Nombre Proyecto"; Rec."Nombre Proyecto")
-                {
-                    ApplicationArea = All;
-                }
-            }
         }
     }
 }

@@ -1,4 +1,4 @@
-page 50001 "Item_BC_Max"
+page 50511 "Item_BC_Max"
 {
     PageType = List;
     SourceTable = Item_BC_Max;

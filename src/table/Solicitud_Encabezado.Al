@@ -14,7 +14,7 @@
 // 	12 	Estado 	Char 	  
 // 	13 	N solicitud necesidad 	Char 	20 
 //Crear Tabla Page list y Page Card
-table 50100 "Solicitud Encabezado"
+table 50500 "Solicitud Encabezado"
 {
     DataClassification = ToBeClassified;
     fields

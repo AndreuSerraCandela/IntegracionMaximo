@@ -16,7 +16,7 @@
 // 	14 	Año 	Char 	4 
 // 	15 	Relación con el contrato 	Char 	  
 //Crear Tabla y Page ListPart
-table 50101 "Solicitud Líneas"
+table 50521 "Solicitud Líneas"
 {
     DataClassification = ToBeClassified;
     fields

@@ -1,5 +1,5 @@
 //cREAR pAGE list
-page 50100 "Solicitud Encabezado"
+page 50500 "Solicitud Encabezado"
 {
     PageType = List;
     SourceTable = "Solicitud Encabezado";
