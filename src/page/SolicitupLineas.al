@@ -48,7 +48,7 @@ page 50501 "Solicitud Líneas"
                 {
                     ApplicationArea = All;
                 }
-                field("Dimensión"; Rec."Dimensión")
+                field("Dimensión"; Rec."Dimension")
                 {
                     ApplicationArea = All;
                 }

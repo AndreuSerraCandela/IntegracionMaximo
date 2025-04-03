@@ -17,7 +17,7 @@ table 50516 "Log Máximo"
         {
             DataClassification = ToBeClassified;
         }
-        field(4; "Proceso"; Text[20])
+        field(4; "Proceso"; Text[100])
         {
             DataClassification = ToBeClassified;
         }

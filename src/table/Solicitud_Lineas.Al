@@ -68,11 +68,17 @@ table 50521 "Solicitud Líneas"
         }
         field(11; "Dimensión"; Date)
         {
+            ObsoleteState = Removed;
+            DataClassification = ToBeClassified;
+        }
+        field(16; "Dimension"; Text[50])
+        {
             DataClassification = ToBeClassified;
         }
         field(12; "Proyecto"; Text[50])
         {
             DataClassification = ToBeClassified;
+            TableRelation = Proyecto."Código";
         }
         field(13; "Importe"; Decimal)
         {

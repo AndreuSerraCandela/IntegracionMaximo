@@ -131,7 +131,7 @@ codeunit 50501 FuncionesJson
                 If Evaluate(SolicitudLineas."Fecha activo fijo", JsonToken.AsValue().AsText()) then;
                 Clear(JsonToken);
                 JsonObjLineas.Get('dimension', JsonToken);
-                If Evaluate(SolicitudLineas."Dimensión", JsonToken.AsValue().AsText()) then;
+                If Evaluate(SolicitudLineas."Dimension", JsonToken.AsValue().AsText()) then;
                 Clear(JsonToken);
                 JsonObjLineas.Get('proyecto', JsonToken);
                 SolicitudLineas."Proyecto" := JsonToken.AsValue().AsText();
@@ -247,6 +247,7 @@ codeunit 50501 FuncionesJson
         BcEmpresa: Text[30];
         GlAcount: Record "G/L Account";
         Job: Record Job;
+        Descripción: Text;
     begin
         JsonObj.ReadFrom(Json);
         JsonObj.Get('empresas', JsonTokenEmpresa);
@@ -297,6 +298,7 @@ codeunit 50501 FuncionesJson
                 if not GlAcount.Get(Apunte.Cuenta) then begin
                     Result := 'No se ha encontrado la cuenta ' + Apunte.Cuenta;
                     LogError(Result, 'Apuntes Contables');
+                    If Apunte.Delete() then;
                     exit;
                 end;
                 Clear(JsonToken);
@@ -316,13 +318,96 @@ codeunit 50501 FuncionesJson
                 end;
                 Clear(JsonToken);
                 JsonObjApunte.Get('descripcion', JsonToken);
-                Apunte.Descripción := JsonToken.AsValue().AsText();
+                //Conciliacion 2025-03-14 para la cuenta 6100001-T1-MEDIO AMBIENTE
+                // Separo descripcion en 3 partes, la primera parte es la descripcion la segunda parte es Dimension 1 y la tercera parte es Dimension 2
+                //El guin antes de T1 es el separador de dimensiones
+                Descripción := JsonToken.AsValue().AsText();
+
+                // Buscamos la posición después de la cuenta
+                if StrPos(Descripción, Apunte.Cuenta) > 0 then begin
+                    // Tomamos el texto después de la cuenta
+                    Descripción := CopyStr(Descripción, StrPos(Descripción, Apunte.Cuenta) + StrLen(Apunte.Cuenta), StrLen(Descripción));
+
+                    // Si hay un guión después de la cuenta, procesamos las dimensiones
+                    if StrPos(Descripción, '-') > 0 then begin
+                        Apunte."Dimension 1" := CopyStr(Descripción, StrPos(Descripción, '-') + 1, 2);
+                        Apunte.Descripción := CopyStr(Descripción, 1, StrPos(Descripción, '-') - 1);
+                        if StrPos(Apunte.Descripción, '-') > 0 then begin
+                            Apunte."Dimension 2" := CopyStr(Apunte.Descripción, StrPos(Apunte.Descripción, '-') + 1, 20);
+                            Apunte.Descripción := CopyStr(Apunte.Descripción, 1, StrPos(Apunte.Descripción, '-') - 1);
+                        end;
+                    end;
+                end;
+
                 Apunte.Modify();
+
+                // Intentamos contabilizar el apunte
+                if not TryContabilizarApunte(Apunte, BcEmpresa) then begin
+                    Apunte.Error := true;
+                    Apunte.Modify();
+                    LogError(GetLastErrorText(), 'Contabilización Apunte ' + Apunte."ID Apunte");
+                end;
             end;
 
         end;
         Result += 'Ok';
-        //exit(true);
+    end;
+
+    [TryFunction]
+    procedure TryContabilizarApunte(Apunte: Record "ApuntesContables"; BcEmpresa: Text[30])
+    var
+        rLinDiaGen: Record "Gen. Journal Line";
+        wLinea: Integer;
+        Cuentas: Record "g/l account";
+        SourceCodeSetup: Record "Source Code Setup";
+    begin
+        rLinDiaGen.ChangeCompany(BcEmpresa);
+        Cuentas.ChangeCompany(BcEmpresa);
+        SourceCodeSetup.ChangeCompany(BcEmpresa);
+
+        rLinDiaGen.RESET;
+        rLinDiaGen.SETRANGE("Journal Template Name", 'GENERAL');
+        rLinDiaGen.SETRANGE("Journal Batch Name", 'MAXIMO');
+        if rLinDiaGen.FIND('+') THEN
+            wLinea := rLinDiaGen."Line No.";
+
+        rLinDiaGen.INIT;
+        rLinDiaGen."Journal Template Name" := 'GENERAL';
+        rLinDiaGen."Journal Batch Name" := 'MAXIMO';
+        rLinDiaGen."Line No." := wLinea;
+        wLinea += 10000;
+        rLinDiaGen.Validate("Document No.", Format(Apunte.Fecha));
+        rLinDiaGen.Validate("Posting Date", Apunte.Fecha);
+
+        if not Cuentas.GET(Apunte.Cuenta) THEN begin
+            Cuentas.INIT;
+            Cuentas."Account Type" := Cuentas."Account Type"::Posting;
+            If CopyStr(Apunte.Cuenta, 1, 1) in ['6,7'] THEN
+                Cuentas."Income/Balance" := Cuentas."Income/Balance"::"Income Statement"
+            ELSE
+                Cuentas."Income/Balance" := Cuentas."Income/Balance"::"Balance Sheet";
+            Cuentas."No." := Apunte.Cuenta;
+            Cuentas.Name := Apunte.Descripción;
+            Cuentas.INSERT;
+        END;
+
+        rLinDiaGen.Validate("Account No.", Apunte.Cuenta);
+        rLinDiaGen."Description" := Apunte.Concepto;
+        rLinDiaGen.Validate("Amount", Apunte.Importe);
+        rLinDiaGen."Bal. Account No." := '0';
+        rLinDiaGen."Bal. Account Type" := rLinDiaGen."Bal. Account Type"::"G/L Account";
+        rLinDiaGen."Shortcut Dimension 1 Code" := Apunte."Dimension 1";
+        rLinDiaGen."Shortcut Dimension 2 Code" := Apunte."Dimension 2";
+        rLinDiaGen."Dimension Set ID" :=
+            Apunte.GetRecDefaultDimID(
+            SourceCodeSetup."General Journal",
+            rLinDiaGen."Shortcut Dimension 1 Code", rLinDiaGen."Shortcut Dimension 2 Code",
+             rLinDiaGen."Dimension Set ID", DATABASE::"Gen. Journal Line", Apunte.Empresa);
+        Apunte.UpdateGlobalDimFromDimSetID(rLinDiaGen."Dimension Set ID", rLinDiaGen."Shortcut Dimension 1 Code", rLinDiaGen."Shortcut Dimension 2 Code");
+        rLinDiaGen.INSERT;
+
+        Apunte.Procesado := TRUE;
+        Apunte.MODIFY;
     end;
 
     procedure LogError(ErrorMessage: Text; Proceso: Text)
