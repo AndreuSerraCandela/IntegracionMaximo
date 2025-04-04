@@ -56,6 +56,19 @@ page 50506 "ApuntesContables"
                     Rec.Contabilizar(Rec.Empresa);
                 end;
             }
+            action("Simular Asiento")
+            {
+                ApplicationArea = All;
+                Image = DataEntry;
+                trigger OnAction()
+                var
+                    Func: Codeunit FuncionesJson;
+                    Result: Text;
+                begin
+                    Func.TrySimularapuntescontables(Rec, Result);
+                    Message('Simulando Asiento... ' + Result);
+                end;
+            }
 
         }
         area(Promoted)

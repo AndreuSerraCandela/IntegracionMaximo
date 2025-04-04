@@ -1,5 +1,10 @@
 codeunit 50501 FuncionesJson
 {
+    Permissions = tabledata "Dimension Set Entry" = RIMD,
+    tabledata "Default Dimension Priority" = RIMD,
+    tabledata "Default Dimension" = RIMD,
+    tabledata "Dimension Set Tree Node" = RIMD,
+    tabledata "Dimension Value" = RIMD;
     [ServiceEnabled]
     procedure Ping(): Text
     begin
@@ -231,6 +236,67 @@ codeunit 50501 FuncionesJson
     end;
 
     [TryFunction]
+    procedure TrySimularapuntescontables(ApuntesTemp: Record ApuntesContables; var Result: text)
+    var
+        Apunte: Record "ApuntesContables" temporary;
+        Empresa: Text[100];
+        rInf: Record "Company Information";
+        BcEmpresa: Text[30];
+        GlAcount: Record "G/L Account";
+        Job: Record Job;
+        Descripción: Text;
+        Automatico: Boolean;
+
+    begin
+        // Implement your error logging here
+        //Crear el metodo para gramar error en la tabla "Log Maximo"
+        Apunte := ApuntesTemp;
+        If Apunte.Descripción = '' then
+            Descripción := Apunte.Concepto else
+            "Descripción" := Apunte.Descripción;
+        Apunte."Descripción" := Descripción;
+        // Buscamos la posición después de la cuenta
+        if StrPos(Descripción, Apunte.Cuenta) > 0 then begin
+            // Tomamos el texto después de la cuenta
+            Descripción := CopyStr(Descripción, StrPos(Descripción, Apunte.Cuenta), StrLen(Descripción));
+
+            // Si hay un guión después de la cuenta, procesamos las dimensiones
+            if StrPos(Descripción, '-') > 0 then begin
+                Apunte."Dimension 1" := CopyStr(Descripción, StrPos(Descripción, '-') + 1, 2);
+                "Descripción" := CopyStr(Descripción, StrPos(Descripción, '-') + 3, 40);
+                if StrPos(Descripción, '-') > 0 then begin
+                    Apunte."Dimension 2" := CopyStr(Descripción, StrPos(Descripción, '-') + 1, 20);
+
+                end;
+            end;
+        end;
+        ApuntesTemp."Dimension 1" := Apunte."Dimension 1";
+        ApuntesTemp."Dimension 2" := Apunte."Dimension 2";
+        ApuntesTemp."Descripción" := Apunte."Descripción";
+        ApuntesTemp.Modify;
+        //Apunte.Insert();
+        Empresa := ApuntesTemp.Empresa;
+        If not rInf.DevuelveEmpresa(Empresa, BcEmpresa) then begin
+            Result := 'No se ha encontrado la empresa ' + Empresa;
+            LogError(Result, 'Apuntes Contables');
+            exit;
+        end;
+
+        // Intentamos contabilizar el apunte
+        if not TryContabilizarApunte(ApuntesTemp, BcEmpresa) then begin
+            ApuntesTemp.Error := true;
+            ApuntesTemp.Modify();
+            LogError(GetLastErrorText(), 'Contabilización Apunte ' + ApuntesTemp."ID Apunte");
+            Result += GetLastErrorText() + 'Contabilización Apunte ' + ApuntesTemp."ID Apunte";
+        end;
+
+
+
+        Result += 'Ok Empresa BC ' + BcEmpresa + ' Empresa Maximo ' + Apunte.Empresa;
+        exit;
+    end;
+
+    [TryFunction]
     procedure Tryapuntescontables(Json: Text; var Result: Text)
     var
         JsonObj: JsonObject;
@@ -248,7 +314,11 @@ codeunit 50501 FuncionesJson
         GlAcount: Record "G/L Account";
         Job: Record Job;
         Descripción: Text;
+        Automatico: Boolean;
+        ErrorApunte: Text;
     begin
+        rInf.Get();
+        Automatico := rInf."Apunte Automático";
         JsonObj.ReadFrom(Json);
         JsonObj.Get('empresas', JsonTokenEmpresa);
         JsonArrayEmpresas := JsonTokenEmpresa.AsArray();
@@ -265,7 +335,7 @@ codeunit 50501 FuncionesJson
                 Apunte.Init();
                 Apunte.Empresa := Empresa;
                 If not rInf.DevuelveEmpresa(Empresa, BcEmpresa) then begin
-                    Result := 'No se ha encontrado la empresa ' + Empresa;
+                    Result := 'No se ha encontrado la empresa ' + Empresa + ' En el apunte ' + Apunte."ID Apunte" + ' de la empresa ' + Apunte.Empresa;
                     LogError(Result, 'Apuntes Contables');
                     exit;
                 end;
@@ -296,7 +366,7 @@ codeunit 50501 FuncionesJson
                 Apunte.Cuenta := JsonToken.AsValue().AsText();
                 GlAcount.ChangeCompany(BcEmpresa);
                 if not GlAcount.Get(Apunte.Cuenta) then begin
-                    Result := 'No se ha encontrado la cuenta ' + Apunte.Cuenta;
+                    Result := 'No se ha encontrado la cuenta ' + Apunte.Cuenta + ' En el apunte ' + Apunte."ID Apunte" + ' de la empresa ' + Apunte.Empresa;
                     LogError(Result, 'Apuntes Contables');
                     If Apunte.Delete() then;
                     exit;
@@ -322,35 +392,37 @@ codeunit 50501 FuncionesJson
                 // Separo descripcion en 3 partes, la primera parte es la descripcion la segunda parte es Dimension 1 y la tercera parte es Dimension 2
                 //El guin antes de T1 es el separador de dimensiones
                 Descripción := JsonToken.AsValue().AsText();
-
+                Apunte."Descripción" := Descripción;
                 // Buscamos la posición después de la cuenta
                 if StrPos(Descripción, Apunte.Cuenta) > 0 then begin
                     // Tomamos el texto después de la cuenta
-                    Descripción := CopyStr(Descripción, StrPos(Descripción, Apunte.Cuenta) + StrLen(Apunte.Cuenta), StrLen(Descripción));
+                    Descripción := CopyStr(Descripción, StrPos(Descripción, Apunte.Cuenta), StrLen(Descripción));
 
                     // Si hay un guión después de la cuenta, procesamos las dimensiones
                     if StrPos(Descripción, '-') > 0 then begin
                         Apunte."Dimension 1" := CopyStr(Descripción, StrPos(Descripción, '-') + 1, 2);
-                        Apunte.Descripción := CopyStr(Descripción, 1, StrPos(Descripción, '-') - 1);
+                        "Descripción" := CopyStr(Descripción, StrPos(Descripción, '-') + 3, 40);
                         if StrPos(Apunte.Descripción, '-') > 0 then begin
-                            Apunte."Dimension 2" := CopyStr(Apunte.Descripción, StrPos(Apunte.Descripción, '-') + 1, 20);
-                            Apunte.Descripción := CopyStr(Apunte.Descripción, 1, StrPos(Apunte.Descripción, '-') - 1);
+                            Apunte."Dimension 2" := CopyStr(Descripción, StrPos(Descripción, '-') + 1, 20);
+
                         end;
                     end;
                 end;
 
                 Apunte.Modify();
+                If Automatico then
 
-                // Intentamos contabilizar el apunte
-                if not TryContabilizarApunte(Apunte, BcEmpresa) then begin
-                    Apunte.Error := true;
-                    Apunte.Modify();
-                    LogError(GetLastErrorText(), 'Contabilización Apunte ' + Apunte."ID Apunte");
-                end;
+                    // Intentamos contabilizar el apunte
+                    if not TryContabilizarApunte(Apunte, BcEmpresa) then begin
+                        Apunte.Error := true;
+                        Apunte.Modify();
+                        LogError(GetLastErrorText(), 'Contabilización Apunte ' + Apunte."ID Apunte" + ' de la empresa ' + Apunte.Empresa);
+                        ErrorApunte += GetLastErrorText() + 'Contabilización Apunte ' + Apunte."ID Apunte" + ' de la empresa ' + Apunte.Empresa;
+                    end;
             end;
 
         end;
-        Result += 'Ok';
+        Result += 'Recibido Ok' + ' ' + ErrorApunte;
     end;
 
     [TryFunction]
@@ -360,6 +432,8 @@ codeunit 50501 FuncionesJson
         wLinea: Integer;
         Cuentas: Record "g/l account";
         SourceCodeSetup: Record "Source Code Setup";
+        Dim1: Code[20];
+        Dim3: Code[20];
     begin
         rLinDiaGen.ChangeCompany(BcEmpresa);
         Cuentas.ChangeCompany(BcEmpresa);
@@ -374,8 +448,8 @@ codeunit 50501 FuncionesJson
         rLinDiaGen.INIT;
         rLinDiaGen."Journal Template Name" := 'GENERAL';
         rLinDiaGen."Journal Batch Name" := 'MAXIMO';
-        rLinDiaGen."Line No." := wLinea;
         wLinea += 10000;
+        rLinDiaGen."Line No." := wLinea;
         rLinDiaGen.Validate("Document No.", Format(Apunte.Fecha));
         rLinDiaGen.Validate("Posting Date", Apunte.Fecha);
 
@@ -394,17 +468,25 @@ codeunit 50501 FuncionesJson
         rLinDiaGen.Validate("Account No.", Apunte.Cuenta);
         rLinDiaGen."Description" := Apunte.Concepto;
         rLinDiaGen.Validate("Amount", Apunte.Importe);
-        rLinDiaGen."Bal. Account No." := '0';
+        rLinDiaGen."Bal. Account No." := '';
         rLinDiaGen."Bal. Account Type" := rLinDiaGen."Bal. Account Type"::"G/L Account";
         rLinDiaGen."Shortcut Dimension 1 Code" := Apunte."Dimension 1";
-        rLinDiaGen."Shortcut Dimension 2 Code" := Apunte."Dimension 2";
+        //rLinDiaGen."Shortcut Dimension 2 Code" := Apunte."Dimension 2";
+        Dim1 := Apunte."Dimension 1";
+        Dim3 := Apunte."Dimension 2";
+        rLinDiaGen."Dimension Set ID" := 0;
         rLinDiaGen."Dimension Set ID" :=
             Apunte.GetRecDefaultDimID(
             SourceCodeSetup."General Journal",
-            rLinDiaGen."Shortcut Dimension 1 Code", rLinDiaGen."Shortcut Dimension 2 Code",
-             rLinDiaGen."Dimension Set ID", DATABASE::"Gen. Journal Line", Apunte.Empresa);
-        Apunte.UpdateGlobalDimFromDimSetID(rLinDiaGen."Dimension Set ID", rLinDiaGen."Shortcut Dimension 1 Code", rLinDiaGen."Shortcut Dimension 2 Code");
-        rLinDiaGen.INSERT;
+            Dim1, Dim3,
+             rLinDiaGen."Dimension Set ID", DATABASE::"Gen. Journal Line", BcEmpresa);
+        //Apunte.UpdateGlobalDimFromDimSetID(rLinDiaGen."Dimension Set ID", Dim1, Dim3);
+        rLinDiaGen."Shortcut Dimension 1 Code" := Apunte."Dimension 1";
+        Dim3 := Apunte."Dimension 2";
+        rLinDiaGen.Insert();
+        Apunte.ValidateShortcutDimValues(1, rLinDiaGen."Shortcut Dimension 1 Code", rLinDiaGen."Dimension Set ID", BcEmpresa);
+        Apunte.ValidateShortcutDimValues(3, Dim3, rLinDiaGen."Dimension Set ID", BcEmpresa);
+        rLinDiaGen.Modify();
 
         Apunte.Procesado := TRUE;
         Apunte.MODIFY;

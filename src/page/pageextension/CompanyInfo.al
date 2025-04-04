@@ -12,6 +12,10 @@ pageextension 50506 CompanyInfo extends "Company Information"
                 {
                     ApplicationArea = All;
                 }
+                field("Apunte Automático"; Rec."Apunte Automático")
+                {
+                    ApplicationArea = All;
+                }
             }
 
         }

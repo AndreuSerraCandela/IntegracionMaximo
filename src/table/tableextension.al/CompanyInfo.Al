@@ -7,8 +7,12 @@ tableextension 50502 CompanyInfoExt extends "Company Information"
         {
             DataClassification = ToBeClassified;
         }
+        field(50101; "Apunte Automático"; Boolean)
+        {
+            DataClassification = ToBeClassified;
+        }
     }
-    procedure DevuelveEmpresa(var pEmpresa: Text; BcEmpresa: Text[30]): Boolean
+    procedure DevuelveEmpresa(var pEmpresa: Text; var BcEmpresa: Text[30]): Boolean
     var
         CompanyInfo: Record "Company Information";
         Company: Record Company;
