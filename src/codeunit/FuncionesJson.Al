@@ -422,7 +422,7 @@ codeunit 50501 FuncionesJson
             end;
 
         end;
-        Result += 'Recibido Ok' + ' ' + ErrorApunte;
+        Result += 'Ok';// + ' ' + ErrorApunte;
     end;
 
     [TryFunction]
