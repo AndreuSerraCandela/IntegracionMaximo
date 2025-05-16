@@ -44,6 +44,12 @@ table 50521 "Solicitud Líneas"
         {
             DataClassification = ToBeClassified;
         }
+        field(26; "Item"; Code[20])
+        {
+            DataClassification = ToBeClassified;
+            TableRelation = Item_BC_Max."Código Producto";
+            ValidateTableRelation = false;
+        }
         field(6; "Cantidad"; Decimal)
         {
             DataClassification = ToBeClassified;
@@ -89,6 +95,18 @@ table 50521 "Solicitud Líneas"
             DataClassification = ToBeClassified;
         }
         field(15; "Relación con el contrato"; Code[30])
+        {
+            DataClassification = ToBeClassified;
+        }
+        field(17; "Costo Unitario"; Decimal)
+        {
+            DataClassification = ToBeClassified;
+        }
+        field(18; "UnidadeMedida"; Code[10])
+        {
+            DataClassification = ToBeClassified;
+        }
+        field(19; "Fecha de Recepción Esperada"; Date)
         {
             DataClassification = ToBeClassified;
         }

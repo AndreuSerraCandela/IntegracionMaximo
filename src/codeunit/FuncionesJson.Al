@@ -38,6 +38,11 @@ codeunit 50501 FuncionesJson
         SolicitudEncabezado: Record "Solicitud Encabezado";
         SolicitudLineas: Record "Solicitud Líneas";
         Linea: Integer;
+        rInf: Record "Company Information";
+        BcEmpresa: Text[30];
+        MaxEmpresa: Text;
+        Vendor: Record Vendor;
+        Currency: Record Currency;
     begin
         JsonObj.ReadFrom(Json);
         JsonObj.Get('Solicitudes', JsonToken);
@@ -45,108 +50,180 @@ codeunit 50501 FuncionesJson
         foreach JsonTokenSolicitud in JsonArraySolicitudes do begin
             JsonObjSolicitud := JsonTokenSolicitud.AsObject();
             Clear(JsonToken);
-            JsonObjSolicitud.Get('N Solicitud', JsonToken);
+            // Obtener empresa/sociedad primero para hacer changecompany
+            if JsonObjSolicitud.Get('SITE', JsonToken) then begin
+                // Verificamos si la empresa existe en BC
+                MaxEmpresa := JsonToken.AsValue().AsText();
+                if not rInf.DevuelveEmpresa(MaxEmpresa, BcEmpresa) then begin
+                    Result := 'No se ha encontrado la empresa ' + MaxEmpresa;
+                    LogError(Result, 'Solicitudes');
+                    exit;
+                end;
+                // Cambiamos a la empresa correspondiente
+                SolicitudEncabezado.ChangeCompany(BcEmpresa);
+                SolicitudLineas.ChangeCompany(BcEmpresa);
+            end;
+
+            // Obtener código de solicitud
+            Clear(JsonToken);
             SolicitudEncabezado.Init();
-            SolicitudEncabezado."N Solicitud" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('PR', JsonToken) then
+                SolicitudEncabezado."N Solicitud" := JsonToken.AsValue().AsText();
             SolicitudEncabezado.Insert();
-            // 	1 	N Solicitud 	Char 	15 
-            // 	2 	ID Proveedor 	Char 	15 
-            // 	3 	Nombre Proveedor 	Char 	100 
-            // 	4 	Teléfono 	Char 	30 
-            // 	5 	Correo 	Char 	80 
-            // 	6 	Descripción General 	Char 	200 
-            // 	7 	Fecha de Creación 	Fecha 	  
-            // 	8 	Fecha de Estimada Inicio 	Fecha 	  
-            // 	9 	Fecha estimada finalización 	Fecha 	  
-            // 	10 	Creado por 	Char 	20 
-            // 	11 	Circuito 	Char 	30 
-            // 	12 	Estado 	Char 	  
-            // 	13 	N solicitud necesidad 	Char 	20 
+            // Guardar SITE/Empresa/sociedad
             Clear(JsonToken);
-            JsonObjSolicitud.Get('Id_Proveedor', JsonToken);
-            SolicitudEncabezado."ID Proveedor" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('SITE', JsonToken) then
+                SolicitudEncabezado."Empresa" := JsonToken.AsValue().AsText();
+
+            // Guardar PR
+
+
+            // Guardar ID Proveedor 
             Clear(JsonToken);
-            JsonObjSolicitud.Get('nombre_proveedor', JsonToken);
-            SolicitudEncabezado."Nombre Proveedor" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('CIF de proveedor', JsonToken) then
+                SolicitudEncabezado."CIF de proveedor" := JsonToken.AsValue().AsText();
+            Vendor.ChangeCompany(BcEmpresa);
+            Vendor.SetRange("VAT Registration No.", SolicitudEncabezado."CIF de proveedor");
+            if Vendor.FindFirst() then
+                SolicitudEncabezado."ID Proveedor" := Vendor."No."
+            else begin
+                Result := 'No se ha encontrado el proveedor ' + SolicitudEncabezado."CIF de proveedor";
+                LogError(Result, 'Solicitudes');
+                exit;
+            end;
+
+            // Guardar Descripción General
             Clear(JsonToken);
-            JsonObjSolicitud.Get('telefono', JsonToken);
-            SolicitudEncabezado."Teléfono" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('Descripción general', JsonToken) then
+                SolicitudEncabezado."Descripción General" := JsonToken.AsValue().AsText();
+
+            // Guardar Fecha de Creación / Fecha solicitud
             Clear(JsonToken);
-            JsonObjSolicitud.Get('correo', JsonToken);
-            SolicitudEncabezado."Correo" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('Requested Date', JsonToken) then begin
+                If Evaluate(SolicitudEncabezado."Fecha de Creación", JsonToken.AsValue().AsText()) then;
+            end;
+
+            // Guardar Divisa
             Clear(JsonToken);
-            JsonObjSolicitud.Get('descripcion_general', JsonToken);
-            SolicitudEncabezado."Descripción General" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('Divisa', JsonToken) then begin
+                SolicitudEncabezado."Divisa" := JsonToken.AsValue().AsText();
+                If SolicitudEncabezado."Divisa" <> '' then begin
+                    if not Currency.Get(SolicitudEncabezado."Divisa") then begin
+                        Result := 'No se ha encontrado la divisa ' + SolicitudEncabezado."Divisa";
+                        LogError(Result, 'Solicitudes');
+                        exit;
+                    end;
+                end;
+            end;
+
+            SolicitudEncabezado."Nombre Proveedor" := Vendor.Name;
+            SolicitudEncabezado."Teléfono" := Vendor."Phone No.";
+            SolicitudEncabezado."Correo" := Vendor."E-Mail";
+
+            // Los campos restantes (si vienen del JSON)
             Clear(JsonToken);
-            JsonObjSolicitud.Get('fecha_creacion', JsonToken);
-            If Evaluate(SolicitudEncabezado."Fecha de Creación", JsonToken.AsValue().AsText()) then;
+            if JsonObjSolicitud.Get('nombre_proveedor', JsonToken) then
+                SolicitudEncabezado."Nombre Proveedor" := JsonToken.AsValue().AsText();
+
             Clear(JsonToken);
-            JsonObjSolicitud.Get('fecha_estimada_inicio', JsonToken);
-            If Evaluate(SolicitudEncabezado."Fecha de Estimada Inicio", JsonToken.AsValue().AsText()) then;
+            if JsonObjSolicitud.Get('telefono', JsonToken) then
+                SolicitudEncabezado."Teléfono" := JsonToken.AsValue().AsText();
+
             Clear(JsonToken);
-            JsonObjSolicitud.Get('fecha_estimada_finalizacion', JsonToken);
-            If Evaluate(SolicitudEncabezado."Fecha estimada finalización", JsonToken.AsValue().AsText()) then;
+            if JsonObjSolicitud.Get('correo', JsonToken) then
+                SolicitudEncabezado."Correo" := JsonToken.AsValue().AsText();
+
             Clear(JsonToken);
-            JsonObjSolicitud.Get('creado_por', JsonToken);
-            SolicitudEncabezado."Creado por" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('fecha_estimada_inicio', JsonToken) then
+                If Evaluate(SolicitudEncabezado."Fecha de Estimada Inicio", JsonToken.AsValue().AsText()) then;
+
             Clear(JsonToken);
-            JsonObjSolicitud.Get('circuito', JsonToken);
-            SolicitudEncabezado."Circuito" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('fecha_estimada_finalizacion', JsonToken) then
+                If Evaluate(SolicitudEncabezado."Fecha estimada finalización", JsonToken.AsValue().AsText()) then;
+
             Clear(JsonToken);
-            JsonObjSolicitud.Get('estado', JsonToken);
-            SolicitudEncabezado."Estado" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('creado_por', JsonToken) then
+                SolicitudEncabezado."Creado por" := JsonToken.AsValue().AsText();
+
             Clear(JsonToken);
-            JsonObjSolicitud.Get('n_solicitud_necesidad', JsonToken);
-            SolicitudEncabezado."N solicitud necesidad" := JsonToken.AsValue().AsText();
+            if JsonObjSolicitud.Get('circuito', JsonToken) then
+                SolicitudEncabezado."Circuito" := JsonToken.AsValue().AsText();
+
+            Clear(JsonToken);
+            if JsonObjSolicitud.Get('estado', JsonToken) then
+                SolicitudEncabezado."Estado" := JsonToken.AsValue().AsText();
+
+            Clear(JsonToken);
+            if JsonObjSolicitud.Get('n_solicitud_necesidad', JsonToken) then
+                SolicitudEncabezado."N solicitud necesidad" := JsonToken.AsValue().AsText();
+
             SolicitudEncabezado.Modify();
-            JsonObjSolicitud.Get('lineas', JsonTokenLineas);
-            JsonArrayLineas := JsonTokenLineas.AsArray();
-            foreach JsonTokenLineas in JsonArrayLineas do begin
-                Linea += 1;
-                JsonObjLineas := JsonTokenLineas.AsObject();
-                Clear(JsonToken);
-                JsonObjLineas.Get('n_linea', JsonToken);
-                SolicitudLineas.Init();
-                SolicitudLineas."N Solicitud" := SolicitudEncabezado."N Solicitud";
-                If Not Evaluate(SolicitudLineas."N Línea", JsonToken.AsValue().AsText()) then
-                    SolicitudLineas."N Línea" := Linea;
-                Clear(JsonToken);
-                JsonObjLineas.Get('sociedad', JsonToken);
-                SolicitudLineas."Sociedad" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('ot', JsonToken);
-                SolicitudLineas."OT" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('descripcion_bien_o_servicio', JsonToken);
-                SolicitudLineas."Descripción bien o servicio" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('cantidad', JsonToken);
-                If Evaluate(SolicitudLineas."Cantidad", JsonToken.AsValue().AsText()) Then;
-                Clear(JsonToken);
-                JsonObjLineas.Get('cuenta_activo_fijo', JsonToken);
-                SolicitudLineas."Cuenta activo fijo" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('n_Pedido_presupuesto', JsonToken);
-                SolicitudLineas."N Pedido Presupuesto" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('epigrafe_pptop', JsonToken);
-                SolicitudLineas."Epígrafe Pptop" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('fecha_activo_fijo', JsonToken);
-                If Evaluate(SolicitudLineas."Fecha activo fijo", JsonToken.AsValue().AsText()) then;
-                Clear(JsonToken);
-                JsonObjLineas.Get('dimension', JsonToken);
-                If Evaluate(SolicitudLineas."Dimension", JsonToken.AsValue().AsText()) then;
-                Clear(JsonToken);
-                JsonObjLineas.Get('proyecto', JsonToken);
-                SolicitudLineas."Proyecto" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
-                JsonObjLineas.Get('importe', JsonToken);
-                If Evaluate(SolicitudLineas."Importe", JsonToken.AsValue().AsText()) Then;
-                Clear(JsonToken);
-                JsonObjLineas.Get('anyo', JsonToken);
-                SolicitudLineas."Año" := JsonToken.AsValue().AsText();
-                Clear(JsonToken);
+
+            // Procesar líneas (si existen)
+            if JsonObjSolicitud.Get('lineas', JsonTokenLineas) then begin
+                JsonArrayLineas := JsonTokenLineas.AsArray();
+                foreach JsonTokenLineas in JsonArrayLineas do begin
+                    Linea += 1;
+                    JsonObjLineas := JsonTokenLineas.AsObject();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('Line', JsonToken);
+                    SolicitudLineas.Init();
+                    SolicitudLineas."N Solicitud" := SolicitudEncabezado."N Solicitud";
+                    If Not Evaluate(SolicitudLineas."N Línea", JsonToken.AsValue().AsText()) then
+                        SolicitudLineas."N Línea" := Linea;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('SITE', JsonToken);
+                    SolicitudLineas."Sociedad" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('ot', JsonToken);
+                    SolicitudLineas."OT" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('Item', JsonToken);
+                    //Se va a hacer una concatenación entre el código y la descripción (articulo-descripción)
+                    SolicitudLineas."Descripción bien o servicio" := JsonToken.AsValue().AsText();
+                    if StrPos(JsonToken.AsValue().AsText(), '-') <> 0 then begin
+                        SolicitudLineas."Item" := CopyStr(JsonToken.AsValue().AsText(), 1, StrPos(JsonToken.AsValue().AsText(), '-') - 1);
+                        SolicitudLineas."Descripción bien o servicio" := CopyStr(JsonToken.AsValue().AsText(), StrPos(JsonToken.AsValue().AsText(), '-') + 1, 100);
+                    end;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('Quantity', JsonToken);
+                    If Evaluate(SolicitudLineas."Cantidad", JsonToken.AsValue().AsText()) Then;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('UnitCost', JsonToken);
+                    If Evaluate(SolicitudLineas."Costo Unitario", JsonToken.AsValue().AsText()) Then;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('OrderUnit', JsonToken);
+                    If Evaluate(SolicitudLineas.UnidadeMedida, JsonToken.AsValue().AsText()) Then;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('vendordate', JsonToken);
+                    If Evaluate(SolicitudLineas."Fecha de Recepción Esperada", JsonToken.AsValue().AsText()) Then;
+
+                    JsonObjLineas.Get('cuenta_activo_fijo', JsonToken);
+                    SolicitudLineas."Cuenta activo fijo" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('n_Pedido_presupuesto', JsonToken);
+                    SolicitudLineas."N Pedido Presupuesto" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('epigrafe_pptop', JsonToken);
+                    SolicitudLineas."Epígrafe Pptop" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('fecha_activo_fijo', JsonToken);
+                    If Evaluate(SolicitudLineas."Fecha activo fijo", JsonToken.AsValue().AsText()) then;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('dimension', JsonToken);
+                    If Evaluate(SolicitudLineas."Dimension", JsonToken.AsValue().AsText()) then;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('proyecto', JsonToken);
+                    SolicitudLineas."Proyecto" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('importe', JsonToken);
+                    If Evaluate(SolicitudLineas."Importe", JsonToken.AsValue().AsText()) Then;
+                    Clear(JsonToken);
+                    JsonObjLineas.Get('anyo', JsonToken);
+                    SolicitudLineas."Año" := JsonToken.AsValue().AsText();
+                    Clear(JsonToken);
+                    SolicitudLineas.Insert();
+                end;
             end;
         end;
         Result := 'Ok';

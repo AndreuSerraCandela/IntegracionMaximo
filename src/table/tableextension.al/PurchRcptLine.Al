@@ -1,11 +1,7 @@
-tableextension 50511 "Purchase Line Extension" extends "Purchase Line"
+tableextension 50512 "Purc_Rcpt_Line Extension" extends "Purch. Rcpt. Line"
 {
     fields
     {
-        field(50100; "Posting Date"; Date)
-        {
-            DataClassification = CustomerContent;
-        }
         field(26; "Item"; Code[20])
         {
             DataClassification = ToBeClassified;

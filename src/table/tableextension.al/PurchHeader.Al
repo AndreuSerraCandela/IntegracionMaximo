@@ -10,6 +10,31 @@ tableextension 50510 "Purchase Header Extension" extends "Purchase Header"
         {
             DataClassification = CustomerContent;
         }
+        field(50102; "Enviado a Maximo"; Boolean)
+        {
+            Caption = 'Enviado a Máximo';
+            DataClassification = CustomerContent;
+            Editable = false;
+        }
+        field(50103; "Fecha Envio a Maximo"; DateTime)
+        {
+            Caption = 'Fecha de Envío a Máximo';
+            DataClassification = CustomerContent;
+            Editable = false;
+        }
+        field(50104; "Estado Maximo"; Text[30])
+        {
+            Caption = 'Estado Máximo';
+            DataClassification = CustomerContent;
+            Editable = false;
+        }
+        field(50105; "Tipo de Pedido"; Option)
+        {
+            Caption = 'Tipo de Pedido';
+            DataClassification = CustomerContent;
+            OptionMembers = "WMATL","WPO","TRACKMTL","TRCKPO","WSUP";
+        }
     }
+
 
 }

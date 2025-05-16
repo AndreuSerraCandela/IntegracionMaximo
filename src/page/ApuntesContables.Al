@@ -69,12 +69,23 @@ page 50506 "ApuntesContables"
                     Message('Simulando Asiento... ' + Result);
                 end;
             }
-
+            action("Acumulados Mensuales")
+            {
+                ApplicationArea = All;
+                Image = Report;
+                RunObject = page "Acumulados Mensuales";
+                Caption = 'Acumulados Mensuales por Sociedad';
+                ToolTip = 'Muestra un resumen mensual acumulado de todas las entradas por sociedad.';
+            }
         }
         area(Promoted)
         {
             actionref(GenerarAsiento; "Generar Asiento")
             {
+            }
+            actionref(AcumuladosMensuales; "Acumulados Mensuales")
+            {
+
             }
         }
     }

@@ -88,37 +88,56 @@ page 50502 "Solicitud Encabezado Ficha"
                     OrderHeader: Record "Purchase Header";
                     OrderLine: Record "Purchase Line";
                     Vendor: Record Vendor;
+                    LineNo: Integer;
+                    ItemMaximo: Record "Item_BC_Max";
                 begin
                     OrderHeader.Init();
-                    If not Vendor.Get(SolicitudEncabezado."ID Proveedor") then begin
-                        Vendor.SetRange("VAT Registration No.", SolicitudEncabezado."ID Proveedor");
+
+                    If not Vendor.Get(Rec."ID Proveedor") then begin
+                        Vendor.SetRange("VAT Registration No.", Rec."ID Proveedor");
                         If Not Vendor.FindSet() then
                             Error('Proveedor no encontrado');
                     end;
                     OrderHeader."Document Type" := OrderHeader."Document Type"::Order;
                     OrderHeader."Order Date" := WORKDATE;
                     OrderHeader.Insert(true);
-                    OrderHeader.Validate("Buy-from Vendor No.", SolicitudEncabezado."ID Proveedor");
-                    OrderHeader."N Solicitud" := SolicitudEncabezado."N Solicitud";
+                    OrderHeader.Validate("Buy-from Vendor No.", Vendor."No.");
+                    if Rec.Divisa <> '' then
+                        OrderHeader.Validate("Currency Code", Rec.Divisa);
+                    OrderHeader."N Solicitud" := Rec."N Solicitud";
+                    OrderHeader."Posting Description" := copyStr(Rec."Descripción General", 1, 50);
                     OrderHeader.Modify(true);
-                    SolicitudLineas.SetRange("N Solicitud", SolicitudEncabezado."N Solicitud");
-                    If SolicitudLineas.FindSet() then
+
+                    SolicitudLineas.SetRange("N Solicitud", Rec."N Solicitud");
+                    If SolicitudLineas.FindSet() then begin
+                        LineNo := 10000;
                         repeat
                             OrderLine.Init();
                             OrderLine."Document Type" := OrderLine."Document Type"::Order;
-                            OrderLine."Line No." := OrderLine."Line No." + 1;
-                            OrderLine."Buy-from Vendor No." := SolicitudEncabezado."ID Proveedor";
-                            OrderLine."Description" := SolicitudLineas."Descripción bien o servicio";
-                            OrderLine."Quantity" := SolicitudLineas."Cantidad";
-                            OrderLine.Type := OrderLine.Type::"G/L Account";
-                            OrderLine."No." := SolicitudLineas."Cuenta activo fijo";
-                            OrderLine.Quantity := 1;
-                            OrderLine."Direct Unit Cost" := SolicitudLineas."Importe";
                             OrderLine."Document No." := OrderHeader."No.";
+                            OrderLine."Line No." := LineNo;
+                            OrderLine.Linea := SolicitudLineas."N Línea";
+                            OrderLine."N Solicitud" := SolicitudLineas."N Solicitud";
+                            OrderLine."Buy-from Vendor No." := Vendor."No.";
+                            If SolicitudLineas."Cuenta activo fijo" <> '' then begin
+                                OrderLine.Type := OrderLine.Type::"G/L Account";
+                                OrderLine.Validate("No.", SolicitudLineas."Cuenta activo fijo");
+                            end else begin
+                                OrderLine.Type := OrderLine.Type::"G/L Account";
+                                If Not ItemMaximo.Get(SolicitudLineas."Item") Then
+                                    OrderLine.Validate("No.", SolicitudLineas."Item")
+                                else
+                                    OrderLine.Validate("No.", ItemMaximo."Código Asociado");
+                            end;
+                            OrderLine.Description := SolicitudLineas."Descripción bien o servicio";
+                            OrderLine.Quantity := SolicitudLineas."Cantidad";
+                            OrderLine.Validate("Direct Unit Cost", SolicitudLineas."Costo Unitario");
                             OrderLine.Insert(true);
-                            OrderLine.Validate("Buy-from Vendor No.", SolicitudEncabezado."ID Proveedor");
-                            OrderLine.Modify(true);
+                            LineNo += 10000;
                         until SolicitudLineas.Next() = 0;
+                    end;
+
+                    Message('Pedido de compra %1 creado correctamente.', OrderHeader."No.");
                 end;
 
             }

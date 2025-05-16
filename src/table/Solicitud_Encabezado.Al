@@ -21,10 +21,12 @@ table 50500 "Solicitud Encabezado"
     {
         field(1; "N Solicitud"; Code[15])
         {
+            Caption = 'Cod. Solicitud';
             DataClassification = ToBeClassified;
         }
         field(2; "ID Proveedor"; Code[15])
         {
+            Caption = 'Nº Proveedor';
             DataClassification = ToBeClassified;
         }
         field(3; "Nombre Proveedor"; Text[100])
@@ -45,6 +47,7 @@ table 50500 "Solicitud Encabezado"
         }
         field(7; "Fecha de Creación"; Date)
         {
+            Caption = 'Fecha solicitud';
             DataClassification = ToBeClassified;
         }
         field(8; "Fecha de Estimada Inicio"; Date)
@@ -70,6 +73,21 @@ table 50500 "Solicitud Encabezado"
         }
         field(13; "N solicitud necesidad"; Code[20])
         {
+            DataClassification = ToBeClassified;
+        }
+
+        field(15; "Divisa"; Code[10])
+        {
+            Caption = 'Divisa';
+            DataClassification = ToBeClassified;
+        }
+        field(16; "CIF de proveedor"; Code[20])
+        {
+            DataClassification = ToBeClassified;
+        }
+        field(17; "Empresa"; Code[30])
+        {
+            Caption = 'Empresa/sociedad';
             DataClassification = ToBeClassified;
         }
     }
