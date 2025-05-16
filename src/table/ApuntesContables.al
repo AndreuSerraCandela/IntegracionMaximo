@@ -121,6 +121,10 @@ table 50505 ApuntesContables
         {
             DataClassification = ToBeClassified;
         }
+        field(13; RecId; RecordId)
+        {
+            DataClassification = ToBeClassified;
+        }
     }
     keys
     {

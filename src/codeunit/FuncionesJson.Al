@@ -393,6 +393,7 @@ codeunit 50501 FuncionesJson
         Descripción: Text;
         Automatico: Boolean;
         ErrorApunte: Text;
+        rLinDiaGen: Record "Gen. Journal Line";
     begin
         rInf.Get();
         Automatico := rInf."Apunte Automático";
@@ -491,10 +492,14 @@ codeunit 50501 FuncionesJson
 
                     // Intentamos contabilizar el apunte
                     if not TryContabilizarApunte(Apunte, BcEmpresa) then begin
-                        Apunte.Error := true;
-                        Apunte.Modify();
+                        rLinDiaGen.ChangeCompany(BcEmpresa);
+                        If rLinDiagen.Get(Apunte.RecId) Then
+                            If rLinDiaGen.Delete() then;
+                        If Apunte.Delete Then;
                         LogError(GetLastErrorText(), 'Contabilización Apunte ' + Apunte."ID Apunte" + ' de la empresa ' + Apunte.Empresa);
                         ErrorApunte += GetLastErrorText() + 'Contabilización Apunte ' + Apunte."ID Apunte" + ' de la empresa ' + Apunte.Empresa;
+                        Result += 'No Ok' + ' ' + ErrorApunte;
+                        exit;
                     end;
             end;
 
@@ -566,7 +571,9 @@ codeunit 50501 FuncionesJson
         rLinDiaGen.Modify();
 
         Apunte.Procesado := TRUE;
+        Apunte.RecId := rLinDiaGen.RecordId;
         Apunte.MODIFY;
+
     end;
 
     procedure LogError(ErrorMessage: Text; Proceso: Text)
