@@ -268,67 +268,67 @@ codeunit 50520 "Envio Maximo"
     end;
 
     // Suscripción al evento de cambio de estado del pedido de compra
-    [EventSubscriber(ObjectType::Table, Database::"Purchase Header", 'OnAfterModifyEvent', '', false, false)]
-    local procedure OnAfterModifyPurchaseHeader(var Rec: Record "Purchase Header"; var xRec: Record "Purchase Header"; RunTrigger: Boolean)
-    begin
-        if not RunTrigger then
-            exit;
+    // [EventSubscriber(ObjectType::Table, Database::"Purchase Header", 'OnAfterModifyEvent', '', false, false)]
+    // local procedure OnAfterModifyPurchaseHeader(var Rec: Record "Purchase Header"; var xRec: Record "Purchase Header"; RunTrigger: Boolean)
+    // begin
+    //     if not RunTrigger then
+    //         exit;
 
-        // Verificar si el estado ha cambiado a lanzado
-        if xRec.Status <> Rec.Status then
-            if Rec.Status = Rec.Status::Released then
-                EnviarPedidoCompraAMaximo(Rec);
-    end;
+    //     // Verificar si el estado ha cambiado a lanzado
+    //     if xRec.Status <> Rec.Status then
+    //         if Rec.Status = Rec.Status::Released then
+    //             EnviarPedidoCompraAMaximo(Rec);
+    // end;
 
-    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Release Purchase Document", 'OnAfterReleasePurchaseDoc', '', false, false)]
-    local procedure OnAfterReleasePurchaseDoc(var PurchaseHeader: Record "Purchase Header"; PreviewMode: Boolean; var LinesWereModified: Boolean; SkipWhseRequestOperations: Boolean)
-    begin
-        if PurchaseHeader."Document Type" <> PurchaseHeader."Document Type"::Order then
-            exit;
+    // [EventSubscriber(ObjectType::Codeunit, Codeunit::"Release Purchase Document", 'OnAfterReleasePurchaseDoc', '', false, false)]
+    // local procedure OnAfterReleasePurchaseDoc(var PurchaseHeader: Record "Purchase Header"; PreviewMode: Boolean; var LinesWereModified: Boolean; SkipWhseRequestOperations: Boolean)
+    // begin
+    //     if PurchaseHeader."Document Type" <> PurchaseHeader."Document Type"::Order then
+    //         exit;
 
-        if PurchaseHeader."Tipo de Pedido" in [PurchaseHeader."Tipo de Pedido"::"TRCKPO", PurchaseHeader."Tipo de Pedido"::"TRACKMTL"] then
-            EnviarPedidoCompraAMaximo(PurchaseHeader);
-    end;
+    //     if PurchaseHeader."Tipo de Pedido" in [PurchaseHeader."Tipo de Pedido"::"TRCKPO", PurchaseHeader."Tipo de Pedido"::"TRACKMTL"] then
+    //         EnviarPedidoCompraAMaximo(PurchaseHeader);
+    // end;
 
-    [EventSubscriber(ObjectType::Table, Database::"Purchase Header", 'OnAfterValidateEvent', 'Status', false, false)]
-    local procedure OnValidatePurchaseHeader(var Rec: Record "Purchase Header"; var xRec: Record "Purchase Header"; CurrFieldNo: Integer)
-    begin
-        if Rec."Document Type" <> Rec."Document Type"::Order then
-            exit;
+    // [EventSubscriber(ObjectType::Table, Database::"Purchase Header", 'OnAfterValidateEvent', 'Status', false, false)]
+    // local procedure OnValidatePurchaseHeader(var Rec: Record "Purchase Header"; var xRec: Record "Purchase Header"; CurrFieldNo: Integer)
+    // begin
+    //     if Rec."Document Type" <> Rec."Document Type"::Order then
+    //         exit;
 
-        if Rec."Tipo de Pedido" in [Rec."Tipo de Pedido"::"WMATL", Rec."Tipo de Pedido"::"WPO"] then
-            EnviarPedidoCompraAMaximo(Rec);
-    end;
+    //     if Rec."Tipo de Pedido" in [Rec."Tipo de Pedido"::"WMATL", Rec."Tipo de Pedido"::"WPO"] then
+    //         EnviarPedidoCompraAMaximo(Rec);
+    // end;
 
-    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Purch.-Post", 'OnAfterFinalizePosting', '', false, false)]
-    local procedure OnAfterFinalizePosting(var PurchHeader: Record "Purchase Header"; var PurchRcptHeader: Record "Purch. Rcpt. Header"; var PurchInvHeader: Record "Purch. Inv. Header"; var PurchCrMemoHdr: Record "Purch. Cr. Memo Hdr."; var ReturnShptHeader: Record "Return Shipment Header"; var GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line"; PreviewMode: Boolean; CommitIsSupressed: Boolean)
-    var
-        PurchaseLine: Record "Purchase Line";
-    begin
-        if PreviewMode then
-            exit;
+    // [EventSubscriber(ObjectType::Codeunit, Codeunit::"Purch.-Post", 'OnAfterFinalizePosting', '', false, false)]
+    // local procedure OnAfterFinalizePosting(var PurchHeader: Record "Purchase Header"; var PurchRcptHeader: Record "Purch. Rcpt. Header"; var PurchInvHeader: Record "Purch. Inv. Header"; var PurchCrMemoHdr: Record "Purch. Cr. Memo Hdr."; var ReturnShptHeader: Record "Return Shipment Header"; var GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line"; PreviewMode: Boolean; CommitIsSupressed: Boolean)
+    // var
+    //     PurchaseLine: Record "Purchase Line";
+    // begin
+    //     if PreviewMode then
+    //         exit;
 
-        if PurchHeader."Document Type" <> PurchHeader."Document Type"::Order then
-            exit;
+    //     if PurchHeader."Document Type" <> PurchHeader."Document Type"::Order then
+    //         exit;
 
-        if PurchRcptHeader."No." = '' then
-            exit;
-        if PurchHeader."Tipo de Pedido" = PurchHeader."Tipo de Pedido"::"WSUP" then begin
-            PurchaseLine.SetRange("Document Type", PurchaseLine."Document Type"::Order);
-            PurchaseLine.SetRange("Document No.", PurchHeader."No.");
-            PurchaseLine.SetFilter("Qty. to Receive", '<>0');
-            if PurchaseLine.FindSet() then
-                exit;
-            EnviarPedidoCompraAMaximo(PurchHeader);
-            EnviarRecepcionAMaximo(PurchRcptHeader);
-            exit;
-        end;
-        PurchaseLine.SetRange("Document Type", PurchaseLine."Document Type"::Order);
-        PurchaseLine.SetRange("Document No.", PurchHeader."No.");
-        PurchaseLine.SetFilter("Qty. to Receive", '<>0');
-        if PurchaseLine.FindSet() then
-            exit;
-        EnviarRecepcionAMaximo(PurchRcptHeader);
-    end;
+    //     if PurchRcptHeader."No." = '' then
+    //         exit;
+    //     if PurchHeader."Tipo de Pedido" = PurchHeader."Tipo de Pedido"::"WSUP" then begin
+    //         PurchaseLine.SetRange("Document Type", PurchaseLine."Document Type"::Order);
+    //         PurchaseLine.SetRange("Document No.", PurchHeader."No.");
+    //         PurchaseLine.SetFilter("Qty. to Receive", '<>0');
+    //         if PurchaseLine.FindSet() then
+    //             exit;
+    //         EnviarPedidoCompraAMaximo(PurchHeader);
+    //         EnviarRecepcionAMaximo(PurchRcptHeader);
+    //         exit;
+    //     end;
+    //     PurchaseLine.SetRange("Document Type", PurchaseLine."Document Type"::Order);
+    //     PurchaseLine.SetRange("Document No.", PurchHeader."No.");
+    //     PurchaseLine.SetFilter("Qty. to Receive", '<>0');
+    //     if PurchaseLine.FindSet() then
+    //         exit;
+    //     EnviarRecepcionAMaximo(PurchRcptHeader);
+    // end;
 
 }
