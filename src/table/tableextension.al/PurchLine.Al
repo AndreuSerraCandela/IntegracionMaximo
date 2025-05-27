@@ -6,7 +6,7 @@ tableextension 50511 "Purchase Line Extension" extends "Purchase Line"
         {
             DataClassification = CustomerContent;
         }
-        field(26; "Item"; Code[20])
+        field(50103; "Item"; Code[20])
         {
             DataClassification = ToBeClassified;
             TableRelation = Item_BC_Max."Código Producto";

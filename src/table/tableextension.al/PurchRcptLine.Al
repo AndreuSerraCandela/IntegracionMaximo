@@ -2,7 +2,7 @@ tableextension 50512 "Purc_Rcpt_Line Extension" extends "Purch. Rcpt. Line"
 {
     fields
     {
-        field(26; "Item"; Code[20])
+        field(50103; "Item"; Code[20])
         {
             DataClassification = ToBeClassified;
             TableRelation = Item_BC_Max."Código Producto";

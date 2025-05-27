@@ -7,13 +7,13 @@ tableextension 50515 "Purch. Rcpt. Header Ext." extends "Purch. Rcpt. Header"
             Caption = 'Nº Solicitud Máximo';
             DataClassification = CustomerContent;
         }
-        field(50101; "Enviado a Maximo"; Boolean)
+        field(50102; "Enviado a Maximo"; Boolean)
         {
             Caption = 'Enviado a Máximo';
             DataClassification = CustomerContent;
             Editable = false;
         }
-        field(50102; "Fecha Envio a Maximo"; DateTime)
+        field(50103; "Fecha Envio a Maximo"; DateTime)
         {
             Caption = 'Fecha de Envío a Máximo';
             DataClassification = CustomerContent;
