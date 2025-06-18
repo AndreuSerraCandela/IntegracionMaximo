@@ -98,16 +98,14 @@ codeunit 50520 "Envio Maximo"
     var
         CompanyInfo: Record "Company Information";
         JsonObj: JsonObject;
-        JsonCabecera: JsonObject;
-        JsonLineas: JsonArray;
+        JsonPolines: JsonArray;
         PurchLine: Record "Purchase Line";
-        JsonObjLinea: JsonObject;
-        Item: Record Item;
-        GLAccount: Record "G/L Account";
+        JsonObjPoline: JsonObject;
         Result: Text;
+        Vendor: Record Vendor;
     begin
-        // Solo procesar si hay un número de solicitud
-        if PurchHeader."N Solicitud" = '' then
+        // Solo procesar si hay un número de pedido
+        if PurchHeader."No." = '' then
             exit(false);
 
         CompanyInfo.Get();
@@ -116,12 +114,16 @@ codeunit 50520 "Envio Maximo"
         if CompanyInfo."Empresa Máximo" = '' then
             exit(false);
 
-        // Crear la cabecera del pedido
-        JsonCabecera.Add('PR', PurchHeader."N Solicitud");
-        JsonCabecera.Add('Fecha', Format(PurchHeader."Document Date", 0, '<Year4>-<Month,2>-<Day,2>'));
-        JsonCabecera.Add('Estado', DeterminarEstadoMaximo(PurchHeader));
-        JsonCabecera.Add('CIF', PurchHeader."Buy-from Vendor No.");
-        JsonCabecera.Add('SITE', CompanyInfo."Empresa Máximo");
+        // Obtener datos del proveedor
+        if not Vendor.Get(PurchHeader."Buy-from Vendor No.") then
+            exit(false);
+
+        // Cabecera del pedido
+        JsonObj.Add('ponum', PurchHeader."No.");
+        JsonObj.Add('siteid', CompanyInfo."Empresa Máximo");
+        JsonObj.Add('description', PurchHeader."Posting Description");
+        JsonObj.Add('orderdate', Format(PurchHeader."Order Date", 0, '<Year4>-<Month,2>-<Day,2>'));
+        JsonObj.Add('cif', Vendor."VAT Registration No.");
 
         // Procesar líneas del pedido
         PurchLine.SetRange("Document Type", PurchHeader."Document Type");
@@ -129,37 +131,48 @@ codeunit 50520 "Envio Maximo"
 
         if PurchLine.FindSet() then begin
             repeat
-                JsonObjLinea.Add('Line', Format(PurchLine."Line No."));
-                JsonObjLinea.Add('PR', PurchHeader."N Solicitud"); // Añadir nº solicitud en cada línea
-                JsonObjLinea.Add('SITE', CompanyInfo."Empresa Máximo"); // Añadir SITE/Almacén en cada línea
-                If PurchLine."Item" <> '' then begin
-                    JsonObjLinea.Add('CuentaContable', PurchLine."Item");
-                    JsonObjLinea.Add('Descripcion', PurchLine."Description");
-                end else begin
-                    // Información del artículo
-                    JsonObjLinea.Add('CuentaContable', PurchLine."No.");
-
+                Clear(JsonObjPoline);
+                JsonObjPoline.Add('polinenum', PurchLine."Line No.");
+                JsonObjPoline.Add('tositeid', CompanyInfo."Empresa Máximo");
+                // Tipo de línea
+                case PurchLine.Type of
+                    PurchLine.Type::Item:
+                        begin
+                            JsonObjPoline.Add('linetype', 'ITEM');
+                            JsonObjPoline.Add('itemnum', PurchLine."No.");
+                        end;
+                    PurchLine.Type::"G/L Account":
+                        begin
+                            JsonObjPoline.Add('linetype', 'MATERIAL');
+                        end;
+                    else
+                        JsonObjPoline.Add('linetype', 'OTRO');
                 end;
-                // Añadir la descripción 
-                JsonObjLinea.Add('Descripcion', PurchLine.Description);
-                JsonObjLinea.Add('Quantity', Format(PurchLine.Quantity, 0, 9));
-                JsonObjLinea.Add('UnitCost', Format(PurchLine."Direct Unit Cost", 0, 9));
-                JsonObjLinea.Add('OrderUnit', PurchLine."Unit of Measure Code");
-
-                // Fecha de recepción esperada
+                // Descripción
+                JsonObjPoline.Add('description', PurchLine.Description);
+                // Cantidad
+                JsonObjPoline.Add('orderqty', PurchLine.Quantity);
+                // Unidad
+                JsonObjPoline.Add('orderunit', PurchLine."Unit of Measure Code");
+                // Costo unitario
+                JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
+                // Almacén (si aplica)
+                if PurchLine."Location Code" <> '' then
+                    JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                // Cuenta contable
+                if PurchLine.Type = PurchLine.Type::"G/L Account" then
+                    JsonObjPoline.Add('gldebitacct', PurchLine."No.")
+                else
+                    JsonObjPoline.Add('gldebitacct', '');
+                // Fecha de entrega
                 if PurchLine."Expected Receipt Date" <> 0D then
-                    JsonObjLinea.Add('vendordate', Format(PurchLine."Expected Receipt Date", 0, '<Year4>-<Month,2>-<Day,2>'));
-
-                JsonLineas.Add(JsonObjLinea);
-                Clear(JsonObjLinea);
+                    JsonObjPoline.Add('vendeliverydate', Format(PurchLine."Expected Receipt Date", 0, '<Year4>-<Month,2>-<Day,2>'));
+                JsonPolines.Add(JsonObjPoline);
             until PurchLine.Next() = 0;
         end;
 
         // Añadir líneas al objeto principal
-        JsonCabecera.Add('Lineas', JsonLineas);
-
-        // Crear el objeto principal
-        JsonObj.Add('Pedido', JsonCabecera);
+        JsonObj.Add('poline', JsonPolines);
 
         // Enviar a Máximo
         if EnviarDatosAMaximo(JsonObj, Result) then begin
@@ -330,5 +343,161 @@ codeunit 50520 "Envio Maximo"
     //         exit;
     //     EnviarRecepcionAMaximo(PurchRcptHeader);
     // end;
+
+    procedure EnviarPedidoCompraAMaximoReal(var PurchHeader: Record "Purchase Header"): Boolean
+    var
+        HttpClient: HttpClient;
+        HttpRequest: HttpRequestMessage;
+        HttpResponse: HttpResponseMessage;
+        HttpContent: HttpContent;
+        JsonObj: JsonObject;
+        JsonPolines: JsonArray;
+        JsonObjPoline: JsonObject;
+        Vendor: Record Vendor;
+        PurchLine: Record "Purchase Line";
+        CompanyInfo: Record "Company Information";
+        Cookie: Text;
+        Result: Text;
+        JSessionId: Text;
+        LoginUrl: Text;
+        AddPOUrl: Text;
+        LogoutUrl: Text;
+        LoginContent: HttpContent;
+        LoginBody: Text;
+        Headers: HttpHeaders;
+        ResponseText: Text;
+        SetCookieValues: List of [Text];
+        Inf: Record "Company Information";
+    begin
+        Inf.Get();
+        if Inf."Maximo Username" = '' then Inf."Maximo Username" := 'CGONZALEZ';
+        if Inf."Maximo Password" = '' then Inf."Maximo Password" := 'V3t@siSp41n';
+        // 1. LOGIN
+        LoginUrl := 'https://termosol-prod.vetasicloud.com:9444/maxrest/j_security_check';
+        LoginBody := 'j_username=' + Inf."Maximo Username" + '&j_password=' + Inf."Maximo Password";
+
+        LoginContent.WriteFrom(LoginBody);
+        LoginContent.GetHeaders(Headers);
+        Headers.Remove('Content-Type');
+        Headers.Add('Content-Type', 'application/x-www-form-urlencoded');
+
+        // LOGIN
+        Clear(HttpRequest);
+        HttpRequest.Method := 'POST';
+        HttpRequest.SetRequestUri(LoginUrl);
+        HttpRequest.Content := LoginContent;
+
+        if not HttpClient.Send(HttpRequest, HttpResponse) then
+            Error('No se pudo conectar al servidor de login.');
+
+        // Obtener la cookie de sesión
+        if not HttpResponse.Headers().GetValues('Set-Cookie', SetCookieValues) then
+            Error('No se recibió cookie de sesión.');
+        JSessionId := GetJSessionIdFromSetCookie(SetCookieValues.Get(1));
+
+        // 2. CREAR JSON DEL PEDIDO (igual que tu función ajustada)
+        CompanyInfo.Get();
+        if not Vendor.Get(PurchHeader."Buy-from Vendor No.") then
+            exit(false);
+
+        JsonObj.Add('ponum', PurchHeader."No.");
+        JsonObj.Add('siteid', CompanyInfo."Empresa Máximo");
+        JsonObj.Add('description', PurchHeader."Posting Description");
+        JsonObj.Add('orderdate', Format(PurchHeader."Order Date", 0, '<Year4>-<Month,2>-<Day,2>'));
+        JsonObj.Add('cif', Vendor."VAT Registration No.");
+
+        PurchLine.SetRange("Document Type", PurchHeader."Document Type");
+        PurchLine.SetRange("Document No.", PurchHeader."No.");
+        if PurchLine.FindSet() then begin
+            repeat
+                Clear(JsonObjPoline);
+                JsonObjPoline.Add('polinenum', PurchLine."Line No.");
+                JsonObjPoline.Add('tositeid', CompanyInfo."Empresa Máximo");
+                case PurchLine.Type of
+                    PurchLine.Type::Item:
+                        begin
+                            JsonObjPoline.Add('linetype', 'ITEM');
+                            JsonObjPoline.Add('itemnum', PurchLine."No.");
+                        end;
+                    PurchLine.Type::"G/L Account":
+                        begin
+                            JsonObjPoline.Add('linetype', 'MATERIAL');
+                        end;
+                    else
+                        JsonObjPoline.Add('linetype', 'OTRO');
+                end;
+                JsonObjPoline.Add('description', PurchLine.Description);
+                JsonObjPoline.Add('orderqty', PurchLine.Quantity);
+                JsonObjPoline.Add('orderunit', PurchLine."Unit of Measure Code");
+                JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
+                if PurchLine."Location Code" <> '' then
+                    JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                if PurchLine.Type = PurchLine.Type::"G/L Account" then
+                    JsonObjPoline.Add('gldebitacct', PurchLine."No.")
+                else
+                    JsonObjPoline.Add('gldebitacct', '');
+                if PurchLine."Expected Receipt Date" <> 0D then
+                    JsonObjPoline.Add('vendeliverydate', Format(PurchLine."Expected Receipt Date", 0, '<Year4>-<Month,2>-<Day,2>'));
+                JsonPolines.Add(JsonObjPoline);
+            until PurchLine.Next() = 0;
+        end;
+        JsonObj.Add('poline', JsonPolines);
+
+        // 3. ENVIAR PEDIDO
+        AddPOUrl := 'https://termosol-prod.vetasicloud.com:9444/maxrest/oslc/os/VEPO?lean=1';
+        JsonObj.WriteTo(Result);
+
+        HttpContent.WriteFrom(Result);
+        HttpContent.GetHeaders(Headers);
+        Headers.Remove('Content-Type');
+        Headers.Add('Content-Type', 'application/json');
+        Headers.Add('Cookie', JSessionId);
+        Headers.Add('Accept', 'application/json');
+
+        // ENVIAR PEDIDO
+        Clear(HttpRequest);
+        HttpRequest.Method := 'POST';
+        HttpRequest.SetRequestUri(AddPOUrl);
+        HttpRequest.Content := HttpContent;
+
+        if not HttpClient.Send(HttpRequest, HttpResponse) then
+            Error('No se pudo conectar al servidor de pedidos.');
+
+        HttpResponse.Content().ReadAs(ResponseText);
+
+        if HttpResponse.HttpStatusCode() <> 201 then
+            Error('Error al crear el pedido en Máximo: %1', ResponseText);
+
+        // 4. LOGOUT
+        LogoutUrl := 'https://termosol-prod.vetasicloud.com:9444/maxrest/oslc/logout';
+        Clear(HttpRequest);
+        HttpRequest.Method := 'GET';
+        HttpRequest.SetRequestUri(LogoutUrl);
+        HttpRequest.GetHeaders(Headers);
+        Headers.Add('Cookie', JSessionId);
+        if not HttpClient.Send(HttpRequest, HttpResponse) then
+            Error('No se pudo cerrar la sesión en Máximo.');
+
+        // Marcar como enviado
+        PurchHeader."Enviado a Maximo" := true;
+        PurchHeader."Fecha Envio a Maximo" := CurrentDateTime;
+        PurchHeader.Modify(false);
+        exit(true);
+    end;
+
+    // Función auxiliar para extraer el JSESSIONID de la cabecera Set-Cookie
+    local procedure GetJSessionIdFromSetCookie(SetCookie: Text): Text
+    var
+        StartPos: Integer;
+        EndPos: Integer;
+    begin
+        StartPos := StrPos(SetCookie, 'JSESSIONID=');
+        if StartPos = 0 then
+            exit('');
+        EndPos := StrPos(CopyStr(SetCookie, StartPos, MaxStrLen(SetCookie)), ';');
+        if EndPos = 0 then
+            EndPos := StrLen(SetCookie) + 1;
+        exit(CopyStr(SetCookie, StartPos, EndPos - 1));
+    end;
 
 }

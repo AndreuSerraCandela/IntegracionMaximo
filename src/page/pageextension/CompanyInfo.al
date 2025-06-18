@@ -16,6 +16,14 @@ pageextension 50506 CompanyInfo extends "Company Information"
                 {
                     ApplicationArea = All;
                 }
+                field("Maximo Username"; Rec."Maximo Username")
+                {
+                    ApplicationArea = All;
+                }
+                field("Maximo Password"; Rec."Maximo Password")
+                {
+                    ApplicationArea = All;
+                }
             }
 
         }

@@ -11,6 +11,16 @@ tableextension 50502 CompanyInfoExt extends "Company Information"
         {
             DataClassification = ToBeClassified;
         }
+        field(50501; "Maximo Username"; Text[50])
+        {
+            Caption = 'Maximo Username';
+            DataClassification = SystemMetadata;
+        }
+        field(50502; "Maximo Password"; Text[50])
+        {
+            Caption = 'Maximo Password';
+            DataClassification = SystemMetadata;
+        }
     }
     procedure DevuelveEmpresa(var pEmpresa: Text; var BcEmpresa: Text[30]): Boolean
     var
