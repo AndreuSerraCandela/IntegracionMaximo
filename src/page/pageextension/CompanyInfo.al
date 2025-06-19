@@ -1,4 +1,3 @@
-
 pageextension 50506 CompanyInfo extends "Company Information"
 {
     layout
@@ -21,6 +20,10 @@ pageextension 50506 CompanyInfo extends "Company Information"
                     ApplicationArea = All;
                 }
                 field("Maximo Password"; Rec."Maximo Password")
+                {
+                    ApplicationArea = All;
+                }
+                field("URL API Maximo"; Rec."URL API Maximo")
                 {
                     ApplicationArea = All;
                 }

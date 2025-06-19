@@ -218,28 +218,55 @@ codeunit 50520 "Envio Maximo"
     var
         CompanyInfo: Record "Company Information";
         JsonObj: JsonObject;
-        JsonCabecera: JsonObject;
+        JsonBody: JsonObject;
         JsonLineas: JsonArray;
         PurchRcptLine: Record "Purch. Rcpt. Line";
         JsonObjLinea: JsonObject;
-        GLAccount: Record "G/L Account";
-        Item: Record Item;
+        Inf: Record "Company Information";
         Result: Text;
+        ResponseText: Text;
+        HttpClient: HttpClient;
+        HttpRequest: HttpRequestMessage;
+        HttpResponse: HttpResponseMessage;
+        HttpContent: HttpContent;
+        Headers: HttpHeaders;
+        ApiUrl: Text;
+        RequestType: Option Get,patch,put,post,delete;
+        ResponseMessage: HttpResponseMessage;
     begin
         // Solo procesar si hay un número de solicitud
         if PurchRcptHeader."N Solicitud" = '' then
             exit(false);
 
         CompanyInfo.Get();
+        Inf.Get();
 
         // Verificar que haya una correlación con Máximo
         if CompanyInfo."Empresa Máximo" = '' then
             exit(false);
 
-        // Crear el objeto JSON para enviar a Máximo
-        JsonCabecera.Add('PR', PurchRcptHeader."N Solicitud"); // Código solicitud creado en Máximo
-        JsonCabecera.Add('FechaRegistro', Format(PurchRcptHeader."Posting Date", 0, '<Year4>-<Month,2>-<Day,2>')); // Fecha de registro (recepción)
-        JsonCabecera.Add('SITE', CompanyInfo."Empresa Máximo"); // SITE en Máximo
+        // Configurar credenciales por defecto si están vacías
+        if Inf."Maximo Username" = '' then
+            Inf."Maximo Username" := 'CGONZALEZ';
+        if Inf."Maximo Password" = '' then
+            Inf."Maximo Password" := 'V3t@siSp41n';
+
+        // URL del API local
+        ApiUrl := CompanyInfo."URL API Maximo";
+        if ApiUrl = '' then
+            ApiUrl := 'http://20.19.38.107:3005/maximo/request';
+
+        // Crear el objeto JSON principal
+        JsonObj.Add('username', Inf."Maximo Username");
+        JsonObj.Add('password', Inf."Maximo Password");
+        JsonObj.Add('baseUrl', 'https://termosol-prod.vetasicloud.com:9444');
+        JsonObj.Add('endpoint', 'VEPR'); // Endpoint para recepciones
+        JsonObj.Add('lean', '1');
+
+        // Crear el body de la recepción
+        JsonBody.Add('PR', PurchRcptHeader."N Solicitud"); // Código solicitud creado en Máximo
+        JsonBody.Add('FechaRegistro', Format(PurchRcptHeader."Posting Date", 0, '<Year4>-<Month,2>-<Day,2>')); // Fecha de registro (recepción)
+        JsonBody.Add('SITE', CompanyInfo."Empresa Máximo"); // SITE en Máximo
 
         // Procesar líneas de la recepción
         PurchRcptLine.SetRange("Document No.", PurchRcptHeader."No.");
@@ -264,20 +291,36 @@ codeunit 50520 "Envio Maximo"
             until PurchRcptLine.Next() = 0;
         end;
 
-        // Añadir líneas al objeto principal
-        JsonCabecera.Add('Lineas', JsonLineas);
+        // Añadir líneas al body
+        JsonBody.Add('Lineas', JsonLineas);
 
-        // Crear el objeto principal
-        JsonObj.Add('Recepcion', JsonCabecera);
+        // Añadir el body al objeto principal
+        JsonObj.Add('body', JsonBody);
 
-        // Enviar a Máximo
-        if EnviarDatosAMaximo(JsonObj, Result) then begin
-            PurchRcptHeader."Enviado a Maximo" := true;
-            PurchRcptHeader."Fecha Envio a Maximo" := CurrentDateTime;
-            PurchRcptHeader.Modify(false);
-            exit(true);
-        end else
-            exit(false);
+        // Convertir a texto JSON
+        JsonObj.WriteTo(Result);
+
+        // Preparar la solicitud HTTP
+        JsonObj.WriteTo(Result);
+        ResponseMessage := RestApiToken(ApiUrl, RequestType::post, Result);
+        // Preparar la solicitud HTTP
+        ResponseMessage.Content.ReadAs(ResponseText);
+        // Verificar la respuesta
+        if ResponseMessage.HttpStatusCode() <> 200 then begin
+            Error('Error al crear el pedido en Máximo: %1', ResponseText);
+        end;
+
+
+
+        // Registrar en el log
+        RegistrarEnvioEnLog(Result, ResponseText);
+
+        // Marcar como enviado
+        PurchRcptHeader."Enviado a Maximo" := true;
+        PurchRcptHeader."Fecha Envio a Maximo" := CurrentDateTime;
+        PurchRcptHeader.Modify(false);
+
+        exit(true);
     end;
 
     // Suscripción al evento de cambio de estado del pedido de compra
@@ -353,66 +396,61 @@ codeunit 50520 "Envio Maximo"
         JsonObj: JsonObject;
         JsonPolines: JsonArray;
         JsonObjPoline: JsonObject;
+        JsonBody: JsonObject;
         Vendor: Record Vendor;
         PurchLine: Record "Purchase Line";
         CompanyInfo: Record "Company Information";
-        Cookie: Text;
-        Result: Text;
-        JSessionId: Text;
-        LoginUrl: Text;
-        AddPOUrl: Text;
-        LogoutUrl: Text;
-        LoginContent: HttpContent;
-        LoginBody: Text;
-        Headers: HttpHeaders;
-        ResponseText: Text;
-        SetCookieValues: List of [Text];
         Inf: Record "Company Information";
+        Result: Text;
+        ResponseText: Text;
+        Headers: HttpHeaders;
+        ApiUrl: Text;
+        RequestType: Option Get,patch,put,post,delete;
+        ResponseMessage: HttpResponseMessage;
     begin
         Inf.Get();
-        if Inf."Maximo Username" = '' then Inf."Maximo Username" := 'CGONZALEZ';
-        if Inf."Maximo Password" = '' then Inf."Maximo Password" := 'V3t@siSp41n';
-        // 1. LOGIN
-        LoginUrl := 'https://termosol-prod.vetasicloud.com:9444/maxrest/j_security_check';
-        LoginBody := 'j_username=' + Inf."Maximo Username" + '&j_password=' + Inf."Maximo Password";
-
-        LoginContent.WriteFrom(LoginBody);
-        LoginContent.GetHeaders(Headers);
-        Headers.Remove('Content-Type');
-        Headers.Add('Content-Type', 'application/x-www-form-urlencoded');
-
-        // LOGIN
-        Clear(HttpRequest);
-        HttpRequest.Method := 'POST';
-        HttpRequest.SetRequestUri(LoginUrl);
-        HttpRequest.Content := LoginContent;
-
-        if not HttpClient.Send(HttpRequest, HttpResponse) then
-            Error('No se pudo conectar al servidor de login.');
-
-        // Obtener la cookie de sesión
-        if not HttpResponse.Headers().GetValues('Set-Cookie', SetCookieValues) then
-            Error('No se recibió cookie de sesión.');
-        JSessionId := GetJSessionIdFromSetCookie(SetCookieValues.Get(1));
-
-        // 2. CREAR JSON DEL PEDIDO (igual que tu función ajustada)
         CompanyInfo.Get();
+
+        // Verificar que tenemos los datos necesarios
         if not Vendor.Get(PurchHeader."Buy-from Vendor No.") then
             exit(false);
 
-        JsonObj.Add('ponum', PurchHeader."No.");
-        JsonObj.Add('siteid', CompanyInfo."Empresa Máximo");
-        JsonObj.Add('description', PurchHeader."Posting Description");
-        JsonObj.Add('orderdate', Format(PurchHeader."Order Date", 0, '<Year4>-<Month,2>-<Day,2>'));
-        JsonObj.Add('cif', Vendor."VAT Registration No.");
+        // Configurar credenciales por defecto si están vacías
+        if Inf."Maximo Username" = '' then
+            Inf."Maximo Username" := 'CGONZALEZ';
+        if Inf."Maximo Password" = '' then
+            Inf."Maximo Password" := 'V3t@siSp41n';
 
+        // URL del API local
+        ApiUrl := CompanyInfo."URL API Maximo";
+        if ApiUrl = '' then
+            ApiUrl := 'http://20.19.38.107:3005/maximo/request';
+
+        // Crear el objeto JSON principal
+        JsonObj.Add('username', Inf."Maximo Username");
+        JsonObj.Add('password', Inf."Maximo Password");
+        JsonObj.Add('baseUrl', 'https://termosol-prod.vetasicloud.com:9444');
+        JsonObj.Add('endpoint', 'VEPO');
+        JsonObj.Add('lean', '1');
+
+        // Crear el body del pedido
+        JsonBody.Add('ponum', PurchHeader."No.");
+        JsonBody.Add('siteid', CompanyInfo."Empresa Máximo");
+        JsonBody.Add('description', PurchHeader."Posting Description");
+        JsonBody.Add('orderdate', Format(PurchHeader."Order Date", 0, '<Year4>-<Month,2>-<Day,2>'));
+        JsonBody.Add('cif', Vendor."VAT Registration No.");
+
+        // Procesar líneas del pedido
         PurchLine.SetRange("Document Type", PurchHeader."Document Type");
         PurchLine.SetRange("Document No.", PurchHeader."No.");
+
         if PurchLine.FindSet() then begin
             repeat
                 Clear(JsonObjPoline);
                 JsonObjPoline.Add('polinenum', PurchLine."Line No.");
                 JsonObjPoline.Add('tositeid', CompanyInfo."Empresa Máximo");
+
+                // Tipo de línea
                 case PurchLine.Type of
                     PurchLine.Type::Item:
                         begin
@@ -422,82 +460,102 @@ codeunit 50520 "Envio Maximo"
                     PurchLine.Type::"G/L Account":
                         begin
                             JsonObjPoline.Add('linetype', 'MATERIAL');
+                            JsonObjPoline.Add('description', PurchLine.Description);
                         end;
-                    else
+                    else begin
                         JsonObjPoline.Add('linetype', 'OTRO');
+                        JsonObjPoline.Add('description', PurchLine.Description);
+                    end;
                 end;
-                JsonObjPoline.Add('description', PurchLine.Description);
+
+                // Campos comunes
                 JsonObjPoline.Add('orderqty', PurchLine.Quantity);
                 JsonObjPoline.Add('orderunit', PurchLine."Unit of Measure Code");
                 JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
+
+                // Almacén (si aplica)
                 if PurchLine."Location Code" <> '' then
                     JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+
+                // Cuenta contable
                 if PurchLine.Type = PurchLine.Type::"G/L Account" then
                     JsonObjPoline.Add('gldebitacct', PurchLine."No.")
                 else
-                    JsonObjPoline.Add('gldebitacct', '');
+                    JsonObjPoline.Add('gldebitacct', '0-0');
+
+                // Fecha de entrega
                 if PurchLine."Expected Receipt Date" <> 0D then
                     JsonObjPoline.Add('vendeliverydate', Format(PurchLine."Expected Receipt Date", 0, '<Year4>-<Month,2>-<Day,2>'));
+
                 JsonPolines.Add(JsonObjPoline);
             until PurchLine.Next() = 0;
         end;
-        JsonObj.Add('poline', JsonPolines);
 
-        // 3. ENVIAR PEDIDO
-        AddPOUrl := 'https://termosol-prod.vetasicloud.com:9444/maxrest/oslc/os/VEPO?lean=1';
+        // Añadir líneas al body
+        JsonBody.Add('poline', JsonPolines);
+
+        // Añadir el body al objeto principal
+        JsonObj.Add('body', JsonBody);
+
+        // Convertir a texto JSON
         JsonObj.WriteTo(Result);
-
-        HttpContent.WriteFrom(Result);
-        HttpContent.GetHeaders(Headers);
-        Headers.Remove('Content-Type');
-        Headers.Add('Content-Type', 'application/json');
-        Headers.Add('Cookie', JSessionId);
-        Headers.Add('Accept', 'application/json');
-
-        // ENVIAR PEDIDO
-        Clear(HttpRequest);
-        HttpRequest.Method := 'POST';
-        HttpRequest.SetRequestUri(AddPOUrl);
-        HttpRequest.Content := HttpContent;
-
-        if not HttpClient.Send(HttpRequest, HttpResponse) then
-            Error('No se pudo conectar al servidor de pedidos.');
-
-        HttpResponse.Content().ReadAs(ResponseText);
-
-        if HttpResponse.HttpStatusCode() <> 201 then
+        ResponseMessage := RestApiToken(ApiUrl, RequestType::post, Result);
+        // Preparar la solicitud HTTP
+        ResponseMessage.Content.ReadAs(ResponseText);
+        // Verificar la respuesta
+        if ResponseMessage.HttpStatusCode() <> 200 then begin
             Error('Error al crear el pedido en Máximo: %1', ResponseText);
+        end;
 
-        // 4. LOGOUT
-        LogoutUrl := 'https://termosol-prod.vetasicloud.com:9444/maxrest/oslc/logout';
-        Clear(HttpRequest);
-        HttpRequest.Method := 'GET';
-        HttpRequest.SetRequestUri(LogoutUrl);
-        HttpRequest.GetHeaders(Headers);
-        Headers.Add('Cookie', JSessionId);
-        if not HttpClient.Send(HttpRequest, HttpResponse) then
-            Error('No se pudo cerrar la sesión en Máximo.');
+        // Registrar en el log
+        RegistrarEnvioEnLog(Result, ResponseText);
 
         // Marcar como enviado
         PurchHeader."Enviado a Maximo" := true;
         PurchHeader."Fecha Envio a Maximo" := CurrentDateTime;
         PurchHeader.Modify(false);
+
         exit(true);
     end;
 
-    // Función auxiliar para extraer el JSESSIONID de la cabecera Set-Cookie
-    local procedure GetJSessionIdFromSetCookie(SetCookie: Text): Text
+    procedure RestApiToken(url: Text; RequestType: Option Get,patch,put,post,delete; payload: Text): HttpResponseMessage
     var
-        StartPos: Integer;
-        EndPos: Integer;
+        Client: HttpClient;
+        RequestHeaders: HttpHeaders;
+        RequestContent: HttpContent;
+        ResponseMessage: HttpResponseMessage;
+        RequestMessage: HttpRequestMessage;
+        ResponseText: Text;
+        contentHeaders: HttpHeaders;
     begin
-        StartPos := StrPos(SetCookie, 'JSESSIONID=');
-        if StartPos = 0 then
-            exit('');
-        EndPos := StrPos(CopyStr(SetCookie, StartPos, MaxStrLen(SetCookie)), ';');
-        if EndPos = 0 then
-            EndPos := StrLen(SetCookie) + 1;
-        exit(CopyStr(SetCookie, StartPos, EndPos - 1));
+        // RequestHeaders := Client.DefaultRequestHeaders();
+        // RequestHeaders.Add('Authorization', StrSubstNo('Bearer %1', token));
+
+        case RequestType of
+            RequestType::Get:
+                Client.Get(URL, ResponseMessage);
+            RequestType::post:
+                begin
+                    RequestContent.WriteFrom(payload);
+                    RequestContent.GetHeaders(contentHeaders);
+                    contentHeaders.Clear();
+                    contentHeaders.Add('Content-Type', 'application/json');
+                    Client.Post(URL, RequestContent, ResponseMessage);
+                end;
+            RequestType::delete:
+                Client.Delete(URL, ResponseMessage);
+            RequestType::patch:
+                begin
+                    RequestContent.WriteFrom(payload);
+                    RequestContent.GetHeaders(contentHeaders);
+                    contentHeaders.Clear();
+                    contentHeaders.Add('Content-Type', 'application/json');
+                    Client.Patch(URL, RequestContent, ResponseMessage);
+                end;
+        end;
+
+
+        exit(ResponseMessage);
     end;
 
 }

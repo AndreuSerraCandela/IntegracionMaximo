@@ -21,6 +21,11 @@ tableextension 50502 CompanyInfoExt extends "Company Information"
             Caption = 'Maximo Password';
             DataClassification = SystemMetadata;
         }
+        field(50503; "URL API Maximo"; Text[250])
+        {
+            Caption = 'URL API Maximo';
+            DataClassification = SystemMetadata;
+        }
     }
     procedure DevuelveEmpresa(var pEmpresa: Text; var BcEmpresa: Text[30]): Boolean
     var
