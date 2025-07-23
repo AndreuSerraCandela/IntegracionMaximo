@@ -223,6 +223,7 @@ codeunit 50520 "Envio Maximo"
         PurchRcptLine: Record "Purch. Rcpt. Line";
         JsonObjLinea: JsonObject;
         Inf: Record "Company Information";
+        ItemMaximo: Record Item_BC_Max;
         Result: Text;
         ResponseText: Text;
         HttpClient: HttpClient;
@@ -233,6 +234,7 @@ codeunit 50520 "Envio Maximo"
         ApiUrl: Text;
         RequestType: Option Get,patch,put,post,delete;
         ResponseMessage: HttpResponseMessage;
+        Location: Record Location;
     begin
         // Solo procesar si hay un número de solicitud
         if PurchRcptHeader."N Solicitud" = '' then
@@ -250,23 +252,34 @@ codeunit 50520 "Envio Maximo"
             Inf."Maximo Username" := 'CGONZALEZ';
         if Inf."Maximo Password" = '' then
             Inf."Maximo Password" := 'V3t@siSp41n';
-
+        if Inf."Api Key Maximo" = '' then
+            Inf."Api Key Maximo" := 'ukTkioaof88744D8E3EEf73AwYv8754EN';
+        if CompanyInfo."Default Site Máximo" = '' then
+            CompanyInfo."Default Site Máximo" := 'FORMS';
+        if CompanyInfo."Endpoint Máximo Recepciones" = '' then
+            CompanyInfo."Endpoint Máximo Recepciones" := 'VEPR';
         // URL del API local
         ApiUrl := CompanyInfo."URL API Maximo";
         if ApiUrl = '' then
-            ApiUrl := 'http://20.19.38.107:3005/maximo/request';
+            ApiUrl := 'http://20.19.38.107:3005/maximo/apikey';
 
         // Crear el objeto JSON principal
         JsonObj.Add('username', Inf."Maximo Username");
         JsonObj.Add('password', Inf."Maximo Password");
         JsonObj.Add('baseUrl', 'https://termosol-prod.vetasicloud.com:9444');
-        JsonObj.Add('endpoint', 'VEPR'); // Endpoint para recepciones
+        JsonObj.Add('endpoint', CompanyInfo."Endpoint Máximo Recepciones"); // Endpoint para recepciones
+        JsonObj.Add('apikey', Inf."Api Key Maximo");
         JsonObj.Add('lean', '1');
 
         // Crear el body de la recepción
         JsonBody.Add('PR', PurchRcptHeader."N Solicitud"); // Código solicitud creado en Máximo
         JsonBody.Add('FechaRegistro', Format(PurchRcptHeader."Posting Date", 0, '<Year4>-<Month,2>-<Day,2>')); // Fecha de registro (recepción)
-        JsonBody.Add('SITE', CompanyInfo."Empresa Máximo"); // SITE en Máximo
+        If not Location.Get(PurchRcptHeader."Location Code") Then Location.Init;
+        If Location."Site Máximo" <> '' Then
+            JsonBody.Add('SITE', Location."Site Máximo")
+        else
+            JsonBody.Add('SITE', CompanyInfo."Default Site Máximo"); // SITE en Máximo
+
 
         // Procesar líneas de la recepción
         PurchRcptLine.SetRange("Document No.", PurchRcptHeader."No.");
@@ -407,6 +420,10 @@ codeunit 50520 "Envio Maximo"
         ApiUrl: Text;
         RequestType: Option Get,patch,put,post,delete;
         ResponseMessage: HttpResponseMessage;
+        Item: Record Item;
+        Unit: Record "Unit of Measure";
+        ItemMaximo: Record Item_BC_Max;
+        Location: Record Location;
     begin
         Inf.Get();
         CompanyInfo.Get();
@@ -420,22 +437,33 @@ codeunit 50520 "Envio Maximo"
             Inf."Maximo Username" := 'CGONZALEZ';
         if Inf."Maximo Password" = '' then
             Inf."Maximo Password" := 'V3t@siSp41n';
+        if Inf."Api Key Maximo" = '' then
+            Inf."Api Key Maximo" := 'ukTkioaof88744D8E3EEf73AwYv8754EN';
+        if CompanyInfo."Default Site Máximo" = '' then
+            CompanyInfo."Default Site Máximo" := 'FORMS';
+        if CompanyInfo."Endpoint Máximo Pedidos" = '' then
+            CompanyInfo."Endpoint Máximo Pedidos" := 'VEPO';
 
         // URL del API local
         ApiUrl := CompanyInfo."URL API Maximo";
         if ApiUrl = '' then
-            ApiUrl := 'http://20.19.38.107:3005/maximo/request';
+            ApiUrl := 'http://20.19.38.107:3005/maximo/apikey';
 
         // Crear el objeto JSON principal
         JsonObj.Add('username', Inf."Maximo Username");
         JsonObj.Add('password', Inf."Maximo Password");
-        JsonObj.Add('baseUrl', 'https://termosol-prod.vetasicloud.com:9444');
-        JsonObj.Add('endpoint', 'VEPO');
+        JsonObj.Add('baseUrl', 'https://solclef-prod-mif.vetasicloud.com:9444');
+        JsonObj.Add('endpoint', CompanyInfo."Endpoint Máximo Pedidos");
+        JsonObj.Add('apikey', Inf."Api Key Maximo");
         JsonObj.Add('lean', '1');
 
         // Crear el body del pedido
         JsonBody.Add('ponum', PurchHeader."No.");
-        JsonBody.Add('siteid', CompanyInfo."Empresa Máximo");
+        If not Location.Get(PurchHeader."Location Code") Then Location.Init;
+        If Location."Site Máximo" <> '' Then
+            JsonBody.Add('siteid', Location."Site Máximo")
+        else
+            JsonBody.Add('siteid', CompanyInfo."Default Site Máximo");
         JsonBody.Add('description', PurchHeader."Posting Description");
         JsonBody.Add('orderdate', Format(PurchHeader."Order Date", 0, '<Year4>-<Month,2>-<Day,2>'));
         JsonBody.Add('cif', Vendor."VAT Registration No.");
@@ -448,14 +476,29 @@ codeunit 50520 "Envio Maximo"
             repeat
                 Clear(JsonObjPoline);
                 JsonObjPoline.Add('polinenum', PurchLine."Line No.");
-                JsonObjPoline.Add('tositeid', CompanyInfo."Empresa Máximo");
-
+                If not Location.Get(PurchLine."Location Code") Then Location.Init;
+                If Location."Site Máximo" <> '' Then
+                    JsonObjPoline.Add('tositeid', Location."Site Máximo")
+                else
+                    JsonObjPoline.Add('tositeid', CompanyInfo."Default Site Máximo");
+                ItemMaximo.init;
                 // Tipo de línea
                 case PurchLine.Type of
                     PurchLine.Type::Item:
                         begin
                             JsonObjPoline.Add('linetype', 'ITEM');
-                            JsonObjPoline.Add('itemnum', PurchLine."No.");
+                            if Item.Get(PurchLine."No.") then begin
+                                if Item."Maximo Item" <> '' then
+                                    JsonObjPoline.Add('itemnum', Item."Maximo Item") else begin
+                                    ItemMaximo.SetRange("Código Asociado", PurchLine."No.");
+                                    if ItemMaximo.FindFirst() then
+                                        JsonObjPoline.Add('itemnum', ItemMaximo."Código Producto");
+                                end;
+                            end
+                            else
+                                JsonObjPoline.Add('itemnum', PurchLine."No.");
+
+
                         end;
                     PurchLine.Type::"G/L Account":
                         begin
@@ -470,7 +513,14 @@ codeunit 50520 "Envio Maximo"
 
                 // Campos comunes
                 JsonObjPoline.Add('orderqty', PurchLine.Quantity);
-                JsonObjPoline.Add('orderunit', PurchLine."Unit of Measure Code");
+                if ItemMaximo."Unidad de Medida" <> '' then
+                    JsonObjPoline.Add('orderunit', ItemMaximo."Unidad de Medida")
+                else begin
+                    if Unit.Get(PurchLine."Unit of Measure Code") then
+                        JsonObjPoline.Add('orderunit', Unit."Maximo Item")
+                    else
+                        JsonObjPoline.Add('orderunit', PurchLine."Unit of Measure Code");
+                end;
                 JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
 
                 // Almacén (si aplica)

@@ -27,6 +27,23 @@ pageextension 50506 CompanyInfo extends "Company Information"
                 {
                     ApplicationArea = All;
                 }
+                field("Api Key Maximo"; Rec."Api Key Maximo")
+                {
+                    ApplicationArea = All;
+                }
+                field("Default Site Máximo"; Rec."Default Site Máximo")
+                {
+                    ApplicationArea = All;
+                }
+                field("Endpoint Máximo Recepciones"; Rec."Endpoint Máximo Recepciones")
+                {
+                    ApplicationArea = All;
+                }
+                field("Endpoint Máximo Pedidos"; Rec."Endpoint Máximo Pedidos")
+                {
+                    ApplicationArea = All;
+                }
+
             }
 
         }
