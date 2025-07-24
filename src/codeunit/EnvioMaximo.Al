@@ -103,6 +103,7 @@ codeunit 50520 "Envio Maximo"
         JsonObjPoline: JsonObject;
         Result: Text;
         Vendor: Record Vendor;
+        Location: Record Location;
     begin
         // Solo procesar si hay un número de pedido
         if PurchHeader."No." = '' then
@@ -157,8 +158,13 @@ codeunit 50520 "Envio Maximo"
                 // Costo unitario
                 JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
                 // Almacén (si aplica)
-                if PurchLine."Location Code" <> '' then
-                    JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                if PurchLine."Location Code" <> '' then begin
+                    If not Location.Get(PurchLine."Location Code") then Location.Init;
+                    If Location."Location Máximo" <> '' Then
+                        JsonObjPoline.Add('storeloc', Location."Location Máximo")
+                    else
+                        JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                end;
                 // Cuenta contable
                 if PurchLine.Type = PurchLine.Type::"G/L Account" then
                     JsonObjPoline.Add('gldebitacct', PurchLine."No.")
@@ -524,8 +530,13 @@ codeunit 50520 "Envio Maximo"
                 JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
 
                 // Almacén (si aplica)
-                if PurchLine."Location Code" <> '' then
-                    JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                if PurchLine."Location Code" <> '' then begin
+                    If not Location.Get(PurchLine."Location Code") then Location.Init;
+                    If Location."Location Máximo" <> '' Then
+                        JsonObjPoline.Add('storeloc', Location."Location Máximo")
+                    else
+                        JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                end;
 
                 // Cuenta contable
                 if PurchLine.Type = PurchLine.Type::"G/L Account" then

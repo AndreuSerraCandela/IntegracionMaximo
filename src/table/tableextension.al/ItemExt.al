@@ -30,6 +30,11 @@ tableextension 50503 LocationExt extends Location
             Caption = 'Site Máximo';
             DataClassification = SystemMetadata;
         }
+        field(50501; "Location Máximo"; Text[50])
+        {
+            Caption = 'Location Máximo';
+            DataClassification = SystemMetadata;
+        }
     }
 }
 //extender paginas
