@@ -26,6 +26,27 @@ tableextension 50502 CompanyInfoExt extends "Company Information"
             Caption = 'URL API Maximo';
             DataClassification = SystemMetadata;
         }
+        field(50504; "Api Key Maximo"; Text[50])
+        {
+            Caption = 'Api Key Maximo';
+            DataClassification = SystemMetadata;
+        }
+        field(50505; "Default Site Máximo"; Text[50])
+        {
+            Caption = 'Default Site Máximo';
+            DataClassification = SystemMetadata;
+        }
+        field(50506; "Endpoint Máximo Recepciones"; Text[50])
+        {
+            Caption = 'Endpoint Máximo Recepciones';
+            DataClassification = SystemMetadata;
+        }
+        field(50507; "Endpoint Máximo Pedidos"; Text[50])
+        {
+            Caption = 'Endpoint Máximo Pedidos';
+            DataClassification = SystemMetadata;
+        }
+
     }
     procedure DevuelveEmpresa(var pEmpresa: Text; var BcEmpresa: Text[30]): Boolean
     var
