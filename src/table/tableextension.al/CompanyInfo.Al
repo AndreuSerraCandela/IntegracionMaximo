@@ -36,12 +36,12 @@ tableextension 50502 CompanyInfoExt extends "Company Information"
             Caption = 'Default Site Máximo';
             DataClassification = SystemMetadata;
         }
-        field(50506; "Endpoint Máximo Recepciones"; Text[50])
+        field(50506; "Endpoint Máximo Recepciones"; Text[250])
         {
             Caption = 'Endpoint Máximo Recepciones';
             DataClassification = SystemMetadata;
         }
-        field(50507; "Endpoint Máximo Pedidos"; Text[50])
+        field(50507; "Endpoint Máximo Pedidos"; Text[250])
         {
             Caption = 'Endpoint Máximo Pedidos';
             DataClassification = SystemMetadata;

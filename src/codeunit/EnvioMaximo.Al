@@ -104,6 +104,8 @@ codeunit 50520 "Envio Maximo"
         Result: Text;
         Vendor: Record Vendor;
         Location: Record Location;
+        Item: Record Item;
+        ItemMaximo: Record Item_BC_Max;
     begin
         // Solo procesar si hay un número de pedido
         if PurchHeader."No." = '' then
@@ -139,18 +141,36 @@ codeunit 50520 "Envio Maximo"
                 case PurchLine.Type of
                     PurchLine.Type::Item:
                         begin
-                            JsonObjPoline.Add('linetype', 'ITEM');
+                            //JsonObjPoline.Add('linetype', 'ITEM');
+                            JsonObjPoline.Add('itemsetid', 'ITEMFORM');
+                            JsonObjPoline.Add('storeloc', CompanyInfo."Empresa Máximo");
                             JsonObjPoline.Add('itemnum', PurchLine."No.");
+                            if Item.Get(PurchLine."No.") then begin
+
+                                if Item."Maximo Item" <> '' then
+                                    JsonObjPoline.Add('itemnum', Item."Maximo Item") else begin
+                                    ItemMaximo.SetRange("Código Asociado", PurchLine."No.");
+                                    if ItemMaximo.FindFirst() then
+                                        JsonObjPoline.Add('itemnum', ItemMaximo."Código Producto");
+                                end;
+                            end
+                            else
+                                JsonObjPoline.Add('itemnum', PurchLine.Item);
                         end;
                     PurchLine.Type::"G/L Account":
                         begin
                             JsonObjPoline.Add('linetype', 'MATERIAL');
+                            JsonObjPoline.Add('storeloc', CompanyInfo."Empresa Máximo");
+                            // Descripción
+                            JsonObjPoline.Add('description', PurchLine.Description);
                         end;
-                    else
+                    else begin
                         JsonObjPoline.Add('linetype', 'OTRO');
+                        JsonObjPoline.Add('storeloc', CompanyInfo."Empresa Máximo");
+                        JsonObjPoline.Add('description', PurchLine.Description);
+                    end;
                 end;
-                // Descripción
-                JsonObjPoline.Add('description', PurchLine.Description);
+
                 // Cantidad
                 JsonObjPoline.Add('orderqty', PurchLine.Quantity);
                 // Unidad
@@ -158,18 +178,18 @@ codeunit 50520 "Envio Maximo"
                 // Costo unitario
                 JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
                 // Almacén (si aplica)
-                if PurchLine."Location Code" <> '' then begin
-                    If not Location.Get(PurchLine."Location Code") then Location.Init;
-                    If Location."Location Máximo" <> '' Then
-                        JsonObjPoline.Add('storeloc', Location."Location Máximo")
-                    else
-                        JsonObjPoline.Add('storeloc', PurchLine."Location Code");
-                end;
+                // if PurchLine."Location Code" <> '' then begin
+                //     If not Location.Get(PurchLine."Location Code") then Location.Init;
+                //     If Location."Location Máximo" <> '' Then
+                //         JsonObjPoline.Add('storeloc', Location."Location Máximo")
+                //     else
+                //         JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                // end;
                 // Cuenta contable
                 if PurchLine.Type = PurchLine.Type::"G/L Account" then
                     JsonObjPoline.Add('gldebitacct', PurchLine."No.")
                 else
-                    JsonObjPoline.Add('gldebitacct', '');
+                    JsonObjPoline.Add('gldebitacct', '0-0');
                 // Fecha de entrega
                 if PurchLine."Expected Receipt Date" <> 0D then
                     JsonObjPoline.Add('vendeliverydate', Format(PurchLine."Expected Receipt Date", 0, '<Year4>-<Month,2>-<Day,2>'));
@@ -477,6 +497,33 @@ codeunit 50520 "Envio Maximo"
         // Procesar líneas del pedido
         PurchLine.SetRange("Document Type", PurchHeader."Document Type");
         PurchLine.SetRange("Document No.", PurchHeader."No.");
+        //         "poline": [
+        //             {
+        //                 "polinenum": 1,
+        //                 "itemsetid": "ITEMFORM",
+        //                 "tositeid": "FORMS",
+        //                 "itemnum": "0-800-695-051",
+        //                 "orderqty": 1,
+        //                 "orderunit": "EA",
+        //                 "unitcost": 135.79,
+        //                 "storeloc": "ALM01",
+        //                 "gldebitacct": "0-0",
+        //                 "vendeliverydate": "2025-05-15"
+        //             },
+        //             {
+        //                 "polinenum": 2,
+        //                 "tositeid": "FORMS",
+        //                 "linetype": "MATERIAL",
+        //                 "description": "Material Test",
+        //                 "orderqty": 1,
+        //                 "orderunit": "EA",
+        //                 "unitcost": 123.45,
+        //                 "gldebitacct": "0-0",
+        //                 "vendeliverydate": "2025-05-15"
+        //             }
+        //         ]
+        //     }
+
 
         if PurchLine.FindSet() then begin
             repeat
@@ -492,8 +539,11 @@ codeunit 50520 "Envio Maximo"
                 case PurchLine.Type of
                     PurchLine.Type::Item:
                         begin
-                            JsonObjPoline.Add('linetype', 'ITEM');
+                            //JsonObjPoline.Add('linetype', 'ITEM');
+                            JsonObjPoline.Add('itemsetid', 'ITEMFORM');
+                            JsonObjPoline.Add('storeloc', CompanyInfo."Empresa Máximo");
                             if Item.Get(PurchLine."No.") then begin
+
                                 if Item."Maximo Item" <> '' then
                                     JsonObjPoline.Add('itemnum', Item."Maximo Item") else begin
                                     ItemMaximo.SetRange("Código Asociado", PurchLine."No.");
@@ -502,7 +552,7 @@ codeunit 50520 "Envio Maximo"
                                 end;
                             end
                             else
-                                JsonObjPoline.Add('itemnum', PurchLine."No.");
+                                JsonObjPoline.Add('itemnum', PurchLine.Item);
 
 
                         end;
@@ -530,13 +580,14 @@ codeunit 50520 "Envio Maximo"
                 JsonObjPoline.Add('unitcost', PurchLine."Direct Unit Cost");
 
                 // Almacén (si aplica)
-                if PurchLine."Location Code" <> '' then begin
-                    If not Location.Get(PurchLine."Location Code") then Location.Init;
-                    If Location."Location Máximo" <> '' Then
-                        JsonObjPoline.Add('storeloc', Location."Location Máximo")
-                    else
-                        JsonObjPoline.Add('storeloc', PurchLine."Location Code");
-                end;
+                // if PurchLine."Location Code" <> '' then begin
+                //     If not Location.Get(PurchLine."Location Code") then Location.Init;
+                //     If Location."Location Máximo" <> '' Then
+                //         JsonObjPoline.Add('storeloc', Location."Location Máximo")
+                //     else
+                //         JsonObjPoline.Add('storeloc', PurchLine."Location Code");
+                // end;
+
 
                 // Cuenta contable
                 if PurchLine.Type = PurchLine.Type::"G/L Account" then
